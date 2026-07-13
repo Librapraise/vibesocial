@@ -3,7 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -29,7 +29,8 @@ const PUBLIC_PAGES = [
 
 const LayoutWrapper = ({ children, currentPageName }: { children: React.ReactNode; currentPageName: string }) => {
   const isPublicPage = PUBLIC_PAGES.includes(currentPageName);
-  return Layout && !isPublicPage ? (
+  const hideLayout = isPublicPage || currentPageName === "Onboarding";
+  return Layout && !hideLayout ? (
     <Layout currentPageName={currentPageName}>{children}</Layout>
   ) : (
     <>{children}</>
@@ -53,7 +54,8 @@ const ProtectedRoute = ({
 };
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated, user, isDemoMode } = useAuth();
+  const location = useLocation();
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -73,6 +75,20 @@ const AuthenticatedApp = () => {
       navigateToLogin();
       return null;
     }
+  }
+
+  // Onboarding redirection logic
+  const needsOnboarding = isAuthenticated && 
+                          !isDemoMode && 
+                          user && 
+                          (!user.vibe_preferences || user.vibe_preferences.length === 0);
+
+  if (needsOnboarding && location.pathname !== "/Onboarding") {
+    return <Navigate to="/Onboarding" replace />;
+  }
+
+  if (isAuthenticated && !needsOnboarding && location.pathname === "/Onboarding") {
+    return <Navigate to="/" replace />;
   }
 
   // Render the main app

@@ -30,6 +30,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<any>(null);
+    const hasLoadedInitialAuth = React.useRef(false);
     const [session, setSession] = useState<Session | null>(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isLoadingAuth, setIsLoadingAuth] = useState(true);
@@ -60,7 +61,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const handleSessionChange = async (session: Session | null) => {
-        setIsLoadingAuth(true);
+        if (!hasLoadedInitialAuth.current) {
+            setIsLoadingAuth(true);
+        }
 
         if (localStorage.getItem('vibe_demo_mode') === 'true') {
             setSession({
@@ -126,6 +129,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setIsAuthenticated(false);
         }
         setIsLoadingAuth(false);
+        hasLoadedInitialAuth.current = true;
     };
 
     const checkAppState = async () => {

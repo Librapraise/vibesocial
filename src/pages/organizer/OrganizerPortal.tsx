@@ -16,6 +16,7 @@ import {
   Crown,
 } from "lucide-react";
 import { createPageUrl, venueTypeIcons } from "@/utils";
+import { useAuth } from "@/lib/AuthContext";
 import TicketTypeManager from "@/components/tickets/TicketTypeManager";
 import StatusUpdateForm from "@/components/events/StatusUpdateForm";
 import { format } from "date-fns";
@@ -53,14 +54,30 @@ type TicketTypeItem = {
 type EventStatusItem = { id: string };
 
 export default function OrganizerPortal() {
-  const [user, setUser] = useState<any>(null);
-  const [userLoading, setUserLoading] = useState<boolean>(true);
+  const { user: authUser } = useAuth();
+  const [user, setUser] = useState<any>(authUser);
+  const [userLoading, setUserLoading] = useState<boolean>(!authUser);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => { }).finally(() => setUserLoading(false));
-  }, []);
+    if (authUser) {
+      setUser(authUser);
+      setUserLoading(false);
+    }
+    base44.auth
+      .me()
+      .then(setUser)
+      .catch((err) => {
+        console.error("OrganizerPortal API load error, falling back to AuthContext:", err);
+        if (authUser) {
+          setUser(authUser);
+        } else {
+          setUser(null);
+        }
+      })
+      .finally(() => setUserLoading(false));
+  }, [authUser]);
 
   // Events created by current user (fallback to all active if none)
   const { data: myEvents = [], isLoading: isLoadingEvents } = useQuery<EventItem[]>({

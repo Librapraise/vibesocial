@@ -19,9 +19,16 @@ axiosInstance.interceptors.request.use((config) => {
   return config;
 });
 
+const ENDPOINT_MAP: Record<string, string> = {
+  TicketType: "/ticket-types",
+  StatusUpdate: "/status-updates",
+  SavedEvent: "/saved-events",
+  UserActivity: "/user-activities",
+};
+
 const entityLiveHandler = {
   get(target: any, prop: string) {
-    const endpoint = `/${prop.toLowerCase()}s`; // pluralize convention (e.g. events, tickets)
+    const endpoint = ENDPOINT_MAP[prop] || `/${prop.toLowerCase()}s`;
     return {
       list: async (...args: any[]) => {
         const response = await axiosInstance.get(endpoint);

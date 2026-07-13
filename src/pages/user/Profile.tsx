@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { createPageUrl, venueTypeIcons } from "@/utils";
+import { useAuth } from "@/lib/AuthContext";
 
 type Activity = {
   id: string;
@@ -73,8 +74,9 @@ const VIBE_INTERESTS_LIST = [
 
 export default function Profile() {
   const { toast } = useToast();
-  const [user, setUser] = useState<CurrentUser>(null);
-  const [userLoading, setUserLoading] = useState<boolean>(true);
+  const { user: authUser } = useAuth();
+  const [user, setUser] = useState<CurrentUser>(authUser);
+  const [userLoading, setUserLoading] = useState<boolean>(!authUser);
   const [activeTab, setActiveTab] = useState<"activity" | "edit" | "interests" | "settings">("activity");
 
   // Form states for updates
@@ -86,6 +88,14 @@ export default function Profile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
+    if (authUser) {
+      setUser(authUser);
+      setEditName(authUser.name || "");
+      setEditBio(authUser.bio || "");
+      setInstagramHandle(authUser.social_links?.instagram || "");
+      setSpotifyHandle(authUser.social_links?.spotify || "");
+      setUserLoading(false);
+    }
     base44.auth
       .me()
       .then((u) => {
@@ -95,9 +105,16 @@ export default function Profile() {
         setInstagramHandle(u.social_links?.instagram || "");
         setSpotifyHandle(u.social_links?.spotify || "");
       })
-      .catch(() => setUser(null))
+      .catch((err) => {
+        console.error("Profile API load error, falling back to AuthContext:", err);
+        if (authUser) {
+          setUser(authUser);
+        } else {
+          setUser(null);
+        }
+      })
       .finally(() => setUserLoading(false));
-  }, []);
+  }, [authUser]);
 
   // All activity by the current user
   const { data: activities = [], isLoading: activitiesLoading } = useQuery<Activity[]>({

@@ -24,6 +24,7 @@ import OrganizerPortal from './pages/organizer/OrganizerPortal';
 import PopularTrends from './pages/discover/PopularTrends';
 import PrivacySettings from './pages/user/PrivacySettings';
 import Profile from './pages/user/Profile';
+import Onboarding from './pages/user/Onboarding';
 import Settings from './pages/user/Settings';
 import ReportBug from './pages/public/ReportBug';
 import SafetyCenter from './pages/public/SafetyCenter';
@@ -62,6 +63,7 @@ export const pagesConfig = {
     PopularTrends,
     PrivacySettings,
     Profile,
+    Onboarding,
     Settings,
     ReportBug,
     SafetyCenter,

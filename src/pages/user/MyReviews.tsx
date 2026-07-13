@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { createPageUrl, venueTypeIcons } from "@/utils";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/AuthContext";
 
 const VIBE_TAG_OPTIONS = ["fire", "chill", "hiphop", "techno", "crowded", "expensive", "friendly", "late_night"];
 
@@ -42,17 +43,29 @@ type ActivityItem = {
 };
 
 export default function MyReviews() {
-  const [user, setUser] = useState<{ id?: string } | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const { user: authUser } = useAuth();
+  const [user, setUser] = useState<{ id?: string } | null>(authUser);
+  const [loading, setLoading] = useState<boolean>(!authUser);
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    if (authUser) {
+      setUser(authUser);
+      setLoading(false);
+    }
     base44.auth
       .me()
       .then((u: any) => setUser(u))
-      .catch(() => { })
+      .catch((err) => {
+        console.error("MyReviews API load error, falling back to AuthContext:", err);
+        if (authUser) {
+          setUser(authUser);
+        } else {
+          setUser(null);
+        }
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [authUser]);
 
   // All activity — attended / checked in events
   const { data: activities = [], isLoading: actLoading } = useQuery<ActivityItem[]>({

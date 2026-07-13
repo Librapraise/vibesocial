@@ -21,16 +21,33 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { createPageUrl, venueTypeIcons } from "@/utils";
+import { useAuth } from "@/lib/AuthContext";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export default function MyHostedEvents() {
-  const [user, setUser] = useState(null);
-  const [userLoading, setUserLoading] = useState(true);
+  const { user: authUser } = useAuth();
+  const [user, setUser] = useState<any>(authUser);
+  const [userLoading, setUserLoading] = useState<boolean>(!authUser);
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => { }).finally(() => setUserLoading(false));
-  }, []);
+    if (authUser) {
+      setUser(authUser);
+      setUserLoading(false);
+    }
+    base44.auth
+      .me()
+      .then(setUser)
+      .catch((err) => {
+        console.error("MyHostedEvents API load error, falling back to AuthContext:", err);
+        if (authUser) {
+          setUser(authUser);
+        } else {
+          setUser(null);
+        }
+      })
+      .finally(() => setUserLoading(false));
+  }, [authUser]);
 
   const { data: myEvents = [], isLoading } = useQuery({
     queryKey: ["myHostedEvents", user?.id],

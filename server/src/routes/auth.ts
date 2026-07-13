@@ -23,6 +23,16 @@ const registerSchema = z.object({
 const updateProfileSchema = z.object({
   name: z.string().min(2).optional(),
   avatar_url: z.string().url().optional().nullable(),
+  bio: z.string().max(250).optional().nullable(),
+  social_links: z.record(z.string(), z.string()).optional(),
+  vibe_preferences: z.array(z.string()).optional(),
+  privacy_settings: z
+    .object({
+      is_private: z.boolean().optional(),
+      show_on_leaderboard: z.boolean().optional(),
+    })
+    .optional(),
+  subscription_tier: z.string().optional(),
   notification_settings: z
     .object({
       push_enabled: z.boolean().optional(),

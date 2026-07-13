@@ -76,22 +76,35 @@ export default function SafetyCenter() {
   const [showContacts, setShowContacts] = useState<boolean>(false);
 
   return (
-    <div className="min-h-screen pb-20">
-      <div className="bg-gradient-to-b from-red-950/20 to-zinc-950 border-b border-zinc-800">
-        <div className="max-w-3xl mx-auto px-4 py-5">
-          <Link to={createPageUrl("Home")}>
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white mb-3 -ml-2">
-              <ArrowLeft className="w-4 h-4" /> Back
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans">
+      {/* Navigation Header */}
+      <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2 font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-pink-600 flex items-center justify-center text-white font-black text-sm">VS</span>
+            VibeSocial
+          </Link>
+          <Link to="/">
+            <Button variant="ghost" className="text-zinc-400 hover:text-white flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Back to Home
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex-grow max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center mb-12">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400 flex items-center justify-center gap-2">
             <Shield className="w-6 h-6 text-orange-400" /> Safety Center
           </h1>
-          <p className="text-zinc-500 text-sm mt-1">Stay safe out there — tips, emergency contacts, and resources for nightlife.</p>
+          <p className="text-zinc-400 text-sm">
+            Stay safe out there — tips, emergency contacts, and resources for nightlife.
+          </p>
         </div>
-      </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-8">
+        <div className="space-y-8">
         {/* Emergency banner */}
         <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-5 flex items-start gap-3">
           <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
@@ -207,5 +220,11 @@ export default function SafetyCenter() {
         </div>
       </div>
     </div>
-  );
+
+    {/* Footer */}
+    <footer className="border-t border-zinc-800 bg-zinc-950 py-8 text-center text-zinc-500 text-sm mt-auto">
+      <p>&copy; 2026 VibeSocial Inc. All rights reserved.</p>
+    </footer>
+  </div>
+);
 }

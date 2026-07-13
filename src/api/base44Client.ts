@@ -133,6 +133,11 @@ const MOCK_USER = {
   id: 'mock-user-id',
   name: 'Mock User',
   email: 'mock@example.com',
+  bio: 'Techno enthusiast and city explorer. Always looking for the next lit spot.',
+  social_links: { instagram: 'mock_explorer', spotify: 'vibe_playlist_1' },
+  vibe_preferences: ['club', 'rooftop', 'cocktails'],
+  privacy_settings: { is_private: false, show_on_leaderboard: true },
+  subscription_tier: 'premium',
   notification_settings: {
     push_enabled: true,
     event_start_alerts: true,
@@ -251,4 +256,18 @@ export const base44Mock = {
 
 import { base44Live } from "./apiClient";
 const API_MODE = import.meta.env.VITE_API_MODE || "mock";
-export const base44 = API_MODE === "live" ? base44Live : base44Mock;
+
+const isDemoSession = () => {
+  try {
+    return localStorage.getItem("vibe_demo_mode") === "true";
+  } catch (e) {
+    return false;
+  }
+};
+
+export const base44 = new Proxy({}, {
+  get(target: any, prop: string) {
+    const activeClient = (API_MODE === "live" && !isDemoSession()) ? base44Live : base44Mock;
+    return activeClient[prop as keyof typeof base44Live];
+  }
+}) as typeof base44Live;

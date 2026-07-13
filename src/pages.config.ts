@@ -1,7 +1,9 @@
 import Layout from './Layout';
+import Landing from './pages/public/Landing';
 import Home from './pages/discover/Home';
 import Login from './pages/public/Login';
 import Register from './pages/public/Register';
+import PrivacyPolicy from './pages/public/PrivacyPolicy';
 import AccountSecurity from './pages/user/AccountSecurity';
 import ActivityHistory from './pages/user/ActivityHistory';
 import Checkout from './pages/user/Checkout';
@@ -22,6 +24,7 @@ import OrganizerPortal from './pages/organizer/OrganizerPortal';
 import PopularTrends from './pages/discover/PopularTrends';
 import PrivacySettings from './pages/user/PrivacySettings';
 import Profile from './pages/user/Profile';
+import Settings from './pages/user/Settings';
 import ReportBug from './pages/public/ReportBug';
 import SafetyCenter from './pages/public/SafetyCenter';
 import SubscriptionPlans from './pages/public/SubscriptionPlans';
@@ -29,13 +32,16 @@ import TermsOfService from './pages/public/TermsOfService';
 import UpcomingEvents from './pages/discover/UpcomingEvents';
 import VenueApplications from './pages/organizer/VenueApplications';
 import VenueDirectory from './pages/discover/VenueDirectory';
+import AdminDashboard from './pages/admin/AdminDashboard';
 
 
 export const pagesConfig = {
   Pages: {
+    Landing,
     Home,
     Login,
     Register,
+    PrivacyPolicy,
     AccountSecurity,
     ActivityHistory,
     Checkout,
@@ -56,14 +62,16 @@ export const pagesConfig = {
     PopularTrends,
     PrivacySettings,
     Profile,
+    Settings,
     ReportBug,
     SafetyCenter,
     SubscriptionPlans,
     TermsOfService,
     UpcomingEvents,
     VenueApplications,
-    VenueDirectory
+    VenueDirectory,
+    AdminDashboard
   },
   Layout,
-  mainPage: 'Home'
+  mainPage: 'Landing'
 };

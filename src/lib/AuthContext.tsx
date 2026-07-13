@@ -20,6 +20,8 @@ interface AuthContextType {
     logout: (shouldRedirect?: boolean) => void;
     navigateToLogin: () => void;
     checkAppState: () => Promise<void>;
+    isDemoMode: boolean;
+    loginAsDemo: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +38,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [appPublicSettings] = useState<any>({ id: 'vibesocial', public_settings: {} });
 
     useEffect(() => {
+        if (localStorage.getItem('vibe_demo_mode') === 'true') {
+            handleSessionChange(null);
+            return;
+        }
+
         // 1. Get the initial session (handles page refresh)
         supabaseBrowser.auth.getSession().then(({ data: { session } }) => {
             handleSessionChange(session);
@@ -44,6 +51,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // 2. Subscribe to auth state changes (login, logout, token refresh)
         const { data: { subscription } } = supabaseBrowser.auth.onAuthStateChange(
             (_event, session) => {
+                if (localStorage.getItem('vibe_demo_mode') === 'true') return;
                 handleSessionChange(session);
             }
         );
@@ -53,6 +61,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const handleSessionChange = async (session: Session | null) => {
         setIsLoadingAuth(true);
+
+        if (localStorage.getItem('vibe_demo_mode') === 'true') {
+            setSession({
+                access_token: 'demo-token',
+                token_type: 'bearer',
+                expires_in: 3600,
+                refresh_token: 'demo-refresh',
+                user: { id: 'demo-user-id', email: 'demo@vibesocial.com' }
+            } as any);
+            setUser({
+                id: 'demo-user-id',
+                email: 'demo@vibesocial.com',
+                name: 'Demo Guest',
+                role: 'attendee',
+                bio: 'Exploring events and venues around the city!',
+                social_links: { instagram: '', spotify: '' },
+                vibe_preferences: [],
+                privacy_settings: { is_private: false, show_on_leaderboard: true },
+                subscription_tier: 'standard',
+                notification_settings: {
+                    push_enabled: true,
+                    event_start_alerts: true,
+                    status_updates: true,
+                    crowd_level_changes: true,
+                    wait_time_alerts: true,
+                    chat_mentions: true,
+                    weekly_digest: true
+                }
+            });
+            setIsAuthenticated(true);
+            setAuthError(null);
+            setIsLoadingAuth(false);
+            return;
+        }
+
         if (session) {
             // Store token for axios interceptor
             localStorage.setItem('vibe_token', session.access_token);
@@ -86,16 +129,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const checkAppState = async () => {
+        if (localStorage.getItem('vibe_demo_mode') === 'true') {
+            await handleSessionChange(null);
+            return;
+        }
         const { data: { session } } = await supabaseBrowser.auth.getSession();
         await handleSessionChange(session);
     };
 
     const logout = async (shouldRedirect = true) => {
+        localStorage.removeItem('vibe_demo_mode');
         await supabaseBrowser.auth.signOut();
         if (shouldRedirect) {
             window.location.href = '/Login';
         }
     };
+
+    const loginAsDemo = () => {
+        localStorage.setItem('vibe_demo_mode', 'true');
+        handleSessionChange(null);
+    };
+
+    const isDemoMode = isAuthenticated && localStorage.getItem('vibe_demo_mode') === 'true';
 
     const navigateToLogin = () => {
         window.location.href = '/Login';
@@ -112,7 +167,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             appPublicSettings,
             logout,
             navigateToLogin,
-            checkAppState
+            checkAppState,
+            isDemoMode,
+            loginAsDemo
         }}>
             {children}
         </AuthContext.Provider>

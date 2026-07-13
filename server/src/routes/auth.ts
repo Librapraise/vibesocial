@@ -4,8 +4,15 @@ import { requireAuth, optionalAuth } from "../middleware/auth";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { validate } from "../middleware/validate";
 import { z } from "zod";
+import rateLimit from "express-rate-limit";
 
 const router = Router();
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20, // Tighter limit strictly on login/register endpoints
+  message: { error: "Too many auth attempts, please try again later." },
+});
 
 // ─── Validation Schemas ───────────────────────────────────────────────────────
 
@@ -54,6 +61,7 @@ const updateProfileSchema = z.object({
  */
 router.post(
   "/register",
+  authLimiter,
   validate(registerSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { email, password, name } = req.body;
@@ -98,6 +106,7 @@ router.post(
  */
 router.post(
   "/login",
+  authLimiter,
   validate(loginSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { email, password } = req.body;

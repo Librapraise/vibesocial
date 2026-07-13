@@ -51,12 +51,6 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later." },
 });
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20, // Tighter limit on auth endpoints
-  message: { error: "Too many auth attempts, please try again later." },
-});
-
 // ─── Body Parsing ─────────────────────────────────────────────────────────────
 
 // Stripe webhook needs raw body — mount BEFORE express.json()
@@ -69,7 +63,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 app.use("/api", apiLimiter);
 
-app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/ticket-types", ticketTypeRoutes);
 app.use("/api/orders", orderRoutes);

@@ -37,6 +37,10 @@ const updateProfileSchema = z.object({
     .object({
       is_private: z.boolean().optional(),
       show_on_leaderboard: z.boolean().optional(),
+      visibility: z.enum(["public", "friends", "private"]).optional(),
+      share_checkins: z.boolean().optional(),
+      show_in_directory: z.boolean().optional(),
+      share_vibes: z.boolean().optional(),
     })
     .optional(),
   subscription_tier: z.string().optional(),
@@ -172,9 +176,32 @@ router.put(
     const userId = req.user!.id;
     const updates = req.body;
 
+    // Fetch existing JSONB fields so we can deep-merge instead of overwriting
+    const { data: existing } = await supabaseAdmin
+      .from("users")
+      .select("notification_settings, privacy_settings")
+      .eq("id", userId)
+      .single();
+
+    const merged: Record<string, any> = { ...updates, updated_at: new Date().toISOString() };
+
+    // Deep-merge JSONB fields — prevents toggling one switch from wiping the others
+    if (updates.notification_settings && existing?.notification_settings) {
+      merged.notification_settings = {
+        ...(existing.notification_settings as object),
+        ...updates.notification_settings,
+      };
+    }
+    if (updates.privacy_settings && existing?.privacy_settings) {
+      merged.privacy_settings = {
+        ...(existing.privacy_settings as object),
+        ...updates.privacy_settings,
+      };
+    }
+
     const { data, error } = await supabaseAdmin
       .from("users")
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(merged)
       .eq("id", userId)
       .select()
       .single();

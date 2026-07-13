@@ -79,14 +79,13 @@ type CurrentUser = {
   bio?: string | null;
   social_links?: Record<string, string>;
   vibe_preferences?: string[];
-  privacy_visibility?: string;
-  privacy_share_checkins?: boolean;
-  privacy_show_in_directory?: boolean;
-  privacy_share_vibes?: boolean;
-  privacy_event_alerts?: boolean;
   privacy_settings?: {
-    is_private: boolean;
-    show_on_leaderboard: boolean;
+    is_private?: boolean;
+    show_on_leaderboard?: boolean;
+    visibility?: string;
+    share_checkins?: boolean;
+    show_in_directory?: boolean;
+    share_vibes?: boolean;
   };
   subscription_tier?: string;
   notification_settings?: Partial<NotifSettings>;
@@ -128,12 +127,13 @@ export default function Settings() {
       setInstagramHandle(authUser.social_links?.instagram || "");
       setSpotifyHandle(authUser.social_links?.spotify || "");
 
-      setVisibility(authUser.privacy_visibility || "public");
-      setShareCheckIns(authUser.privacy_share_checkins !== false);
-      setShowInDirectory(authUser.privacy_show_in_directory !== false);
-      setShareVibeReports(authUser.privacy_share_vibes !== false);
-      setIsPrivateAccount(authUser.privacy_settings?.is_private || false);
-      setShowOnLeaderboard(authUser.privacy_settings?.show_on_leaderboard !== false);
+      const ps = authUser.privacy_settings as any;
+      setVisibility(ps?.visibility || "public");
+      setShareCheckIns(ps?.share_checkins !== false);
+      setShowInDirectory(ps?.show_in_directory !== false);
+      setShareVibeReports(ps?.share_vibes !== false);
+      setIsPrivateAccount(ps?.is_private || false);
+      setShowOnLeaderboard(ps?.show_on_leaderboard !== false);
 
       const storedNotifs = authUser.notification_settings;
       if (storedNotifs) setNotifSettings({ ...DEFAULT_NOTIF_SETTINGS, ...storedNotifs });
@@ -150,12 +150,13 @@ export default function Settings() {
           setInstagramHandle(u.social_links?.instagram || "");
           setSpotifyHandle(u.social_links?.spotify || "");
 
-          setVisibility(u.privacy_visibility || "public");
-          setShareCheckIns(u.privacy_share_checkins !== false);
-          setShowInDirectory(u.privacy_show_in_directory !== false);
-          setShareVibeReports(u.privacy_share_vibes !== false);
-          setIsPrivateAccount(u.privacy_settings?.is_private || false);
-          setShowOnLeaderboard(u.privacy_settings?.show_on_leaderboard !== false);
+          const ps2 = u.privacy_settings as any;
+          setVisibility(ps2?.visibility || "public");
+          setShareCheckIns(ps2?.share_checkins !== false);
+          setShowInDirectory(ps2?.show_in_directory !== false);
+          setShareVibeReports(ps2?.share_vibes !== false);
+          setIsPrivateAccount(ps2?.is_private || false);
+          setShowOnLeaderboard(ps2?.show_on_leaderboard !== false);
 
           const storedNotifs = u.notification_settings;
           if (storedNotifs) setNotifSettings({ ...DEFAULT_NOTIF_SETTINGS, ...storedNotifs });
@@ -242,11 +243,11 @@ export default function Settings() {
         };
       } else if (activeTab === "privacy") {
         payload = {
-          privacy_visibility: visibility,
-          privacy_share_checkins: shareCheckIns,
-          privacy_show_in_directory: showInDirectory,
-          privacy_share_vibes: shareVibeReports,
           privacy_settings: {
+            visibility,
+            share_checkins: shareCheckIns,
+            show_in_directory: showInDirectory,
+            share_vibes: shareVibeReports,
             is_private: isPrivateAccount,
             show_on_leaderboard: showOnLeaderboard,
           },

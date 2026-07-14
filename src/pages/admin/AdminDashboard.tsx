@@ -44,6 +44,13 @@ import {
   Zap,
   Menu,
   X,
+  Crown,
+  UserCog,
+  Mail,
+  CalendarClock,
+  BadgeCheck,
+  ShieldAlert,
+  Gem,
 } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 
@@ -183,6 +190,10 @@ export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+  // User management modal
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [deletingUser, setDectingUser] = useState(false);
+
   // Search states
   const [userSearch, setUserSearch] = useState("");
   const [eventSearch, setEventSearch] = useState("");
@@ -239,8 +250,10 @@ export default function AdminDashboard() {
   const updateRoleMutation = useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: string }) =>
       (base44 as any).admin.updateUserRole(userId, role),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      // Keep modal in sync with fresh data
+      if (selectedUser && data?.id === selectedUser.id) setSelectedUser(data);
       toast({ title: "✅ Role Updated", description: "User role changed successfully." });
     },
     onError: (err: any) => {
@@ -251,9 +264,10 @@ export default function AdminDashboard() {
   const updateSubscriptionMutation = useMutation({
     mutationFn: ({ userId, subscription_tier }: { userId: string; subscription_tier: string }) =>
       (base44 as any).admin.updateUserSubscription(userId, subscription_tier),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
-      toast({ title: "✅ Subscription Updated", description: "User subscription tier changed successfully." });
+      if (selectedUser && data?.id === selectedUser.id) setSelectedUser(data);
+      toast({ title: "✅ Subscription Updated", description: "Subscription tier changed successfully." });
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err?.message || "Failed to update subscription.", variant: "destructive" });
@@ -265,9 +279,12 @@ export default function AdminDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "stats"] });
+      setSelectedUser(null);
+      setDectingUser(false);
       toast({ title: "🗑️ User Deleted", description: "User account removed from platform." });
     },
     onError: (err: any) => {
+      setDectingUser(false);
       toast({ title: "Error", description: err?.message || "Failed to delete user.", variant: "destructive" });
     },
   });
@@ -592,7 +609,7 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                 <SectionHeader
                   icon={Users}
                   title="User Directory"
-                  subtitle={`${users.length} registered users`}
+                  subtitle={`${users.length} registered users · click any row to manage`}
                   colorClass="text-blue-400"
                   action={
                     <div className="relative">
@@ -616,7 +633,7 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                         <th className="px-5 py-3.5 text-left">Role</th>
                         <th className="px-5 py-3.5 text-left">Subscription</th>
                         <th className="px-5 py-3.5 text-left">Joined</th>
-                        <th className="px-5 py-3.5 text-right">Actions</th>
+                        <th className="px-5 py-3.5 text-right">Manage</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/40">
@@ -626,106 +643,57 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                         <tr><td colSpan={6}><EmptyState message="No users match your search." /></td></tr>
                       ) : (
                         filteredUsers.map((u: any) => (
-                          <tr key={u.id} className="hover:bg-zinc-800/20 transition">
+                          <tr
+                            key={u.id}
+                            className="hover:bg-zinc-800/30 transition cursor-pointer group"
+                            onClick={() => { setSelectedUser(u); setDectingUser(false); }}
+                          >
                             <td className="px-5 py-3.5">
                               <div className="flex items-center gap-2.5">
-                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
-                                  u.role === "admin" ? "bg-red-500/20 text-red-400" :
-                                  u.role === "organizer" ? "bg-orange-500/20 text-orange-400" :
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
+                                  u.role === "admin" ? "bg-gradient-to-br from-red-500/30 to-red-400/10 text-red-400" :
+                                  u.role === "organizer" ? "bg-gradient-to-br from-orange-500/30 to-orange-400/10 text-orange-400" :
                                   "bg-zinc-700/60 text-zinc-300"
                                 }`}>
                                   {u.name?.[0]?.toUpperCase() || "?"}
                                 </div>
-                                <span className="font-semibold text-zinc-200 truncate max-w-[120px]">{u.name || "—"}</span>
+                                <span className="font-semibold text-zinc-200 truncate max-w-[120px] group-hover:text-white transition">{u.name || "—"}</span>
                               </div>
                             </td>
                             <td className="px-5 py-3.5 text-zinc-400 text-xs">{u.email}</td>
                             <td className="px-5 py-3.5">
-                              <Badge
-                                variant="outline"
-                                className={
-                                  u.role === "admin"
-                                    ? "border-red-500/30 bg-red-500/5 text-red-400 text-[10px] font-bold uppercase tracking-wider"
-                                    : u.role === "organizer"
-                                    ? "border-orange-500/30 bg-orange-500/5 text-orange-400 text-[10px] font-bold uppercase tracking-wider"
-                                    : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
-                                }
-                              >
+                              <Badge variant="outline" className={
+                                u.role === "admin"
+                                  ? "border-red-500/30 bg-red-500/5 text-red-400 text-[10px] font-bold uppercase tracking-wider"
+                                  : u.role === "organizer"
+                                  ? "border-orange-500/30 bg-orange-500/5 text-orange-400 text-[10px] font-bold uppercase tracking-wider"
+                                  : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
+                              }>
                                 {u.role}
                               </Badge>
                             </td>
                             <td className="px-5 py-3.5">
-                              <Badge
-                                variant="outline"
-                                className={
-                                  u.subscription_tier === "vip"
-                                    ? "border-violet-500/30 bg-violet-500/5 text-violet-400 text-[10px] font-bold uppercase tracking-wider"
-                                    : u.subscription_tier === "plus"
-                                    ? "border-blue-500/30 bg-blue-500/5 text-blue-400 text-[10px] font-bold uppercase tracking-wider"
-                                    : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
-                                }
-                              >
-                                {u.subscription_tier || "standard"}
+                              <Badge variant="outline" className={
+                                u.subscription_tier === "vip"
+                                  ? "border-violet-500/30 bg-violet-500/5 text-violet-400 text-[10px] font-bold uppercase tracking-wider"
+                                  : u.subscription_tier === "plus"
+                                  ? "border-blue-500/30 bg-blue-500/5 text-blue-400 text-[10px] font-bold uppercase tracking-wider"
+                                  : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
+                              }>
+                                {u.subscription_tier === "vip" ? "👑 VIP" : u.subscription_tier === "plus" ? "⚡ Plus" : "Free"}
                               </Badge>
                             </td>
                             <td className="px-5 py-3.5 text-zinc-500 text-xs">
                               {u.created_at ? new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
                             </td>
-                            <td className="px-5 py-3.5">
-                              <div className="flex items-center justify-end gap-1 flex-wrap">
-                                {u.role !== "admin" && (
-                                  <Button variant="ghost" size="sm"
-                                    onClick={() => updateRoleMutation.mutate({ userId: u.id, role: "admin" })}
-                                    className="text-[11px] text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 px-2 rounded-lg"
-                                  >Admin</Button>
-                                )}
-                                {u.role !== "organizer" && (
-                                  <Button variant="ghost" size="sm"
-                                    onClick={() => updateRoleMutation.mutate({ userId: u.id, role: "organizer" })}
-                                    className="text-[11px] text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 h-7 px-2 rounded-lg"
-                                  >Organizer</Button>
-                                )}
-                                {u.role !== "attendee" && (
-                                  <Button variant="ghost" size="sm"
-                                    onClick={() => updateRoleMutation.mutate({ userId: u.id, role: "attendee" })}
-                                    className="text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/40 h-7 px-2 rounded-lg"
-                                  >Attendee</Button>
-                                )}
-                                <div className="w-full h-px bg-zinc-800/40 my-1" />
-                                {u.subscription_tier !== "vip" && (
-                                  <Button variant="ghost" size="sm"
-                                    onClick={() => updateSubscriptionMutation.mutate({ userId: u.id, subscription_tier: "vip" })}
-                                    className="text-[11px] text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 h-7 px-2 rounded-lg"
-                                  >VIP</Button>
-                                )}
-                                {u.subscription_tier !== "plus" && (
-                                  <Button variant="ghost" size="sm"
-                                    onClick={() => updateSubscriptionMutation.mutate({ userId: u.id, subscription_tier: "plus" })}
-                                    className="text-[11px] text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7 px-2 rounded-lg"
-                                  >Plus</Button>
-                                )}
-                                {u.subscription_tier !== "standard" && (
-                                  <Button variant="ghost" size="sm"
-                                    onClick={() => updateSubscriptionMutation.mutate({ userId: u.id, subscription_tier: "standard" })}
-                                    className="text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/40 h-7 px-2 rounded-lg"
-                                  >Standard</Button>
-                                )}
-                                {u.id !== user?.id && (
-                                  <>
-                                    <div className="w-full h-px bg-zinc-800/40 my-1" />
-                                    <Button variant="ghost" size="sm"
-                                      onClick={() => {
-                                        if (window.confirm(`Delete ${u.name}? This is irreversible.`)) {
-                                          deleteUserMutation.mutate(u.id);
-                                        }
-                                      }}
-                                      className="text-zinc-600 hover:text-red-400 hover:bg-red-500/10 h-7 px-2 rounded-lg"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
+                            <td className="px-5 py-3.5 text-right">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSelectedUser(u); setDectingUser(false); }}
+                                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg transition border border-blue-500/20 hover:border-blue-500/40"
+                              >
+                                <UserCog className="w-3.5 h-3.5" />
+                                Manage
+                              </button>
                             </td>
                           </tr>
                         ))
@@ -736,7 +704,202 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
               </motion.div>
             )}
 
+            {/* ─────────────── USER MANAGE MODAL ─────────────── */}
+            <AnimatePresence>
+              {selectedUser && (
+                <>
+                  <motion.div
+                    key="user-modal-backdrop"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => { setSelectedUser(null); setDectingUser(false); }}
+                    className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
+                  />
+                  <motion.div
+                    key="user-modal"
+                    initial={{ opacity: 0, scale: 0.95, y: 24 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                    transition={{ type: "spring", damping: 26, stiffness: 300 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+                  >
+                    <div className="pointer-events-auto w-full max-w-md bg-zinc-900 border border-zinc-800/80 rounded-2xl shadow-2xl overflow-hidden">
+                      {/* Header */}
+                      <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-b border-zinc-800/60 p-5">
+                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
+                        <button
+                          onClick={() => { setSelectedUser(null); setDectingUser(false); }}
+                          className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-700/60 transition"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black shadow-lg ${
+                            selectedUser.role === "admin" ? "bg-gradient-to-br from-red-500/40 to-red-400/20 text-red-300" :
+                            selectedUser.role === "organizer" ? "bg-gradient-to-br from-orange-500/40 to-orange-400/20 text-orange-300" :
+                            "bg-gradient-to-br from-zinc-600/60 to-zinc-700/40 text-zinc-200"
+                          }`}>
+                            {selectedUser.name?.[0]?.toUpperCase() || "?"}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-black text-zinc-100 text-base truncate">{selectedUser.name || "Unnamed User"}</h3>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <Mail className="w-3 h-3 text-zinc-500 shrink-0" />
+                              <p className="text-xs text-zinc-400 truncate">{selectedUser.email}</p>
+                            </div>
+                            {selectedUser.created_at && (
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <CalendarClock className="w-3 h-3 text-zinc-500 shrink-0" />
+                                <p className="text-[10px] text-zinc-500">
+                                  Joined {new Date(selectedUser.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-4">
+                          <Badge variant="outline" className={
+                            selectedUser.role === "admin" ? "border-red-500/40 bg-red-500/10 text-red-400 text-[10px] font-bold uppercase tracking-wider" :
+                            selectedUser.role === "organizer" ? "border-orange-500/40 bg-orange-500/10 text-orange-400 text-[10px] font-bold uppercase tracking-wider" :
+                            "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
+                          }>
+                            {selectedUser.role === "admin" ? "🛡 Admin" : selectedUser.role === "organizer" ? "🏢 Organizer" : "👤 Attendee"}
+                          </Badge>
+                          <Badge variant="outline" className={
+                            selectedUser.subscription_tier === "vip" ? "border-violet-500/40 bg-violet-500/10 text-violet-400 text-[10px] font-bold uppercase tracking-wider" :
+                            selectedUser.subscription_tier === "plus" ? "border-blue-500/40 bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase tracking-wider" :
+                            "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
+                          }>
+                            {selectedUser.subscription_tier === "vip" ? "👑 VIP" : selectedUser.subscription_tier === "plus" ? "⚡ Plus" : "Free"}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Body */}
+                      <div className="p-5 space-y-5 max-h-[60vh] overflow-y-auto">
+
+                        {/* Role */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <ShieldAlert className="w-3.5 h-3.5 text-zinc-500" />
+                            <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Platform Role</p>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {([
+                              { value: "admin", label: "Admin", desc: "Full platform access", color: "red" },
+                              { value: "organizer", label: "Organizer", desc: "Create & manage events", color: "orange" },
+                              { value: "attendee", label: "Attendee", desc: "Standard access", color: "zinc" },
+                            ] as const).map((option) => {
+                              const isActive = selectedUser.role === option.value;
+                              const colorCls = {
+                                red: isActive ? "border-red-500/50 bg-red-500/15 text-red-300 shadow-red-500/10 shadow-md" : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-400",
+                                orange: isActive ? "border-orange-500/50 bg-orange-500/15 text-orange-300 shadow-orange-500/10 shadow-md" : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 hover:border-orange-500/30 hover:bg-orange-500/5 hover:text-orange-400",
+                                zinc: isActive ? "border-zinc-500/50 bg-zinc-700/50 text-zinc-200 shadow-md" : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 hover:border-zinc-500/40 hover:bg-zinc-700/40 hover:text-zinc-200",
+                              }[option.color];
+                              return (
+                                <button
+                                  key={option.value}
+                                  disabled={isActive || updateRoleMutation.isPending}
+                                  onClick={() => {
+                                    setSelectedUser({ ...selectedUser, role: option.value });
+                                    updateRoleMutation.mutate({ userId: selectedUser.id, role: option.value });
+                                  }}
+                                  className={`relative flex flex-col items-center gap-1 p-3 rounded-xl border text-center transition-all duration-200 disabled:cursor-default ${colorCls}`}
+                                >
+                                  {isActive && <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
+                                  <span className="text-xs font-bold">{option.label}</span>
+                                  <span className="text-[9px] leading-tight opacity-70">{option.desc}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Subscription */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Gem className="w-3.5 h-3.5 text-zinc-500" />
+                            <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Subscription Tier</p>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {([
+                              { value: "standard", label: "Free", desc: "Basic features only", icon: "🔵", color: "zinc" },
+                              { value: "plus", label: "Plus", desc: "Chat + premium perks", icon: "⚡", color: "blue" },
+                              { value: "vip", label: "VIP", desc: "All features + priority", icon: "👑", color: "violet" },
+                            ] as const).map((tier) => {
+                              const isActive = (selectedUser.subscription_tier || "standard") === tier.value;
+                              const colorCls = {
+                                zinc: isActive ? "border-zinc-500/50 bg-zinc-700/50 text-zinc-200 shadow-md" : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 hover:border-zinc-500/40 hover:bg-zinc-700/40 hover:text-zinc-200",
+                                blue: isActive ? "border-blue-500/50 bg-blue-500/15 text-blue-300 shadow-blue-500/10 shadow-md" : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 hover:border-blue-500/30 hover:bg-blue-500/5 hover:text-blue-400",
+                                violet: isActive ? "border-violet-500/50 bg-violet-500/15 text-violet-300 shadow-violet-500/10 shadow-md" : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 hover:border-violet-500/30 hover:bg-violet-500/5 hover:text-violet-400",
+                              }[tier.color];
+                              return (
+                                <button
+                                  key={tier.value}
+                                  disabled={isActive || updateSubscriptionMutation.isPending}
+                                  onClick={() => {
+                                    setSelectedUser({ ...selectedUser, subscription_tier: tier.value });
+                                    updateSubscriptionMutation.mutate({ userId: selectedUser.id, subscription_tier: tier.value });
+                                  }}
+                                  className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border text-center transition-all duration-200 disabled:cursor-default ${colorCls}`}
+                                >
+                                  {isActive && <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
+                                  <span className="text-lg leading-none">{tier.icon}</span>
+                                  <span className="text-xs font-bold">{tier.label}</span>
+                                  <span className="text-[9px] leading-tight opacity-70">{tier.desc}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Danger Zone */}
+                        {selectedUser.id !== user?.id && (
+                          <div className="border border-red-500/20 bg-red-500/5 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                              <p className="text-[11px] font-bold text-red-500 uppercase tracking-widest">Danger Zone</p>
+                            </div>
+                            {!deletingUser ? (
+                              <button
+                                onClick={() => setDectingUser(true)}
+                                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 hover:text-red-300 text-sm font-semibold transition"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Delete User Account
+                              </button>
+                            ) : (
+                              <div className="space-y-2">
+                                <p className="text-xs text-red-400 text-center font-medium">This action is <strong>irreversible</strong>. Are you sure?</p>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => setDectingUser(false)}
+                                    className="flex-1 py-2 rounded-xl bg-zinc-800/60 hover:bg-zinc-700/60 border border-zinc-700/40 text-zinc-400 hover:text-zinc-200 text-xs font-semibold transition"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => deleteUserMutation.mutate(selectedUser.id)}
+                                    disabled={deleteUserMutation.isPending}
+                                    className="flex-1 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 hover:text-red-300 text-xs font-semibold transition disabled:opacity-50"
+                                  >
+                                    {deleteUserMutation.isPending ? "Deleting…" : "Yes, Delete"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+
             {/* ─────────────── EVENTS ─────────────── */}
+
             {activeSection === "events" && (
               <motion.div key="events" {...fadeUp} className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 space-y-5">
                 <SectionHeader

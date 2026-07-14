@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
+import logoImg from "@/assets/logo.png";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
@@ -126,7 +127,7 @@ export default function Onboarding() {
         description: "Your feed has been personalized.",
       });
       
-      navigate("/", { replace: true });
+      navigate("/Home", { replace: true });
     } catch (err) {
       toast({
         title: "Error saving preferences",
@@ -150,9 +151,7 @@ export default function Onboarding() {
         {/* Progress header */}
         <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-orange-500 to-pink-500 flex items-center justify-center font-bold text-white shadow-lg">
-              VS
-            </div>
+            <img src={logoImg} alt="VibeSocial Logo" className="w-8 h-8 object-cover rounded-lg shadow-lg border border-zinc-800" />
             <span className="font-extrabold text-sm tracking-wide">VibeSocial Onboarding</span>
           </div>
           <span className="text-xs font-bold text-zinc-500">Step {currentStep} of 3</span>

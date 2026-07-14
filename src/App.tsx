@@ -29,7 +29,7 @@ const PUBLIC_PAGES = [
 
 const LayoutWrapper = ({ children, currentPageName }: { children: React.ReactNode; currentPageName: string }) => {
   const isPublicPage = PUBLIC_PAGES.includes(currentPageName);
-  const hideLayout = isPublicPage || currentPageName === "Onboarding";
+  const hideLayout = isPublicPage || currentPageName === "Onboarding" || currentPageName === "AdminDashboard";
   return Layout && !hideLayout ? (
     <Layout currentPageName={currentPageName}>{children}</Layout>
   ) : (
@@ -88,7 +88,16 @@ const AuthenticatedApp = () => {
   }
 
   if (isAuthenticated && !needsOnboarding && location.pathname === "/Onboarding") {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/Home" replace />;
+  }
+
+  // Admin routing constraints
+  const isAdmin = user?.role === "admin";
+  if (isAuthenticated && isAdmin && location.pathname !== "/AdminDashboard") {
+    return <Navigate to="/AdminDashboard" replace />;
+  }
+  if (location.pathname === "/AdminDashboard" && !isAdmin && !isDemoMode) {
+    return <Navigate to="/Home" replace />;
   }
 
   // Render the main app

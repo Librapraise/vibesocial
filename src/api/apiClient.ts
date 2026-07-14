@@ -117,5 +117,60 @@ export const base44Live = {
         return response.data;
       }
     }
-  }
+  },
+  admin: {
+    getStats: async () => {
+      const response = await axiosInstance.get("/admin/stats");
+      return response.data;
+    },
+    // Users
+    getUsers: async (params?: { search?: string; role?: string; limit?: number; offset?: number }) => {
+      const response = await axiosInstance.get("/admin/users", { params });
+      return response.data;
+    },
+    updateUserRole: async (userId: string, role: string) => {
+      const response = await axiosInstance.patch(`/admin/users/${userId}/role`, { role });
+      return response.data;
+    },
+    deleteUser: async (userId: string) => {
+      const response = await axiosInstance.delete(`/admin/users/${userId}`);
+      return response.data;
+    },
+    // Events
+    getEvents: async (params?: { search?: string; is_active?: boolean; limit?: number; offset?: number }) => {
+      const response = await axiosInstance.get("/admin/events", { params });
+      return response.data;
+    },
+    updateEvent: async (eventId: string, data: any) => {
+      const response = await axiosInstance.patch(`/admin/events/${eventId}`, data);
+      return response.data;
+    },
+    deleteEvent: async (eventId: string) => {
+      const response = await axiosInstance.delete(`/admin/events/${eventId}`);
+      return response.data;
+    },
+    // Orders
+    getOrders: async (params?: { status?: string; limit?: number; offset?: number }) => {
+      const response = await axiosInstance.get("/admin/orders", { params });
+      return response.data;
+    },
+    // Reviews
+    getReviews: async (params?: { limit?: number; offset?: number }) => {
+      const response = await axiosInstance.get("/admin/reviews", { params });
+      return response.data;
+    },
+    deleteReview: async (reviewId: string) => {
+      const response = await axiosInstance.delete(`/admin/reviews/${reviewId}`);
+      return response.data;
+    },
+    // Status Updates
+    getStatusUpdates: async (params?: { limit?: number; offset?: number }) => {
+      const response = await axiosInstance.get("/admin/status-updates", { params });
+      return response.data;
+    },
+    deleteStatusUpdate: async (statusId: string) => {
+      const response = await axiosInstance.delete(`/admin/status-updates/${statusId}`);
+      return response.data;
+    },
+  },
 };

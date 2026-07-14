@@ -233,6 +233,54 @@ export const base44Mock = {
   appLogs: {
     logUserInApp: async () => {}
   },
+  admin: {
+    getStats: async () => ({
+      totalUsers: MOCK_EVENTS.length + 3,
+      totalEvents: MOCK_EVENTS.length,
+      activeEvents: MOCK_EVENTS.filter(e => e.is_active).length,
+      confirmedOrders: MOCK_ORDERS.length,
+      totalRevenue: MOCK_ORDERS.reduce((s: number, o: any) => s + (o.total_amount || 0), 0),
+      totalReviews: MOCK_REVIEWS.length,
+      totalStatusUpdates: MOCK_STATUS_UPDATES.length,
+      newUsersThisWeek: 2,
+      newOrdersThisWeek: 1,
+    }),
+    getUsers: async () => entityStore["User"] || [],
+    updateUserRole: async (userId: string, role: string) => {
+      const u = entityStore["User"].find((x: any) => x.id === userId);
+      if (u) u.role = role;
+      return u;
+    },
+    deleteUser: async (userId: string) => {
+      const idx = entityStore["User"].findIndex((x: any) => x.id === userId);
+      if (idx !== -1) entityStore["User"].splice(idx, 1);
+      return { success: true };
+    },
+    getEvents: async () => entityStore["Event"] || [],
+    updateEvent: async (eventId: string, data: any) => {
+      const e = entityStore["Event"].find((x: any) => x.id === eventId);
+      if (e) Object.assign(e, data);
+      return e;
+    },
+    deleteEvent: async (eventId: string) => {
+      const idx = entityStore["Event"].findIndex((x: any) => x.id === eventId);
+      if (idx !== -1) entityStore["Event"].splice(idx, 1);
+      return { success: true };
+    },
+    getOrders: async () => entityStore["Order"] || [],
+    getReviews: async () => entityStore["Review"] || [],
+    deleteReview: async (reviewId: string) => {
+      const idx = entityStore["Review"].findIndex((x: any) => x.id === reviewId);
+      if (idx !== -1) entityStore["Review"].splice(idx, 1);
+      return { success: true };
+    },
+    getStatusUpdates: async () => entityStore["StatusUpdate"] || [],
+    deleteStatusUpdate: async (statusId: string) => {
+      const idx = entityStore["StatusUpdate"].findIndex((x: any) => x.id === statusId);
+      if (idx !== -1) entityStore["StatusUpdate"].splice(idx, 1);
+      return { success: true };
+    },
+  },
   integrations: {
     Core: {
       UploadFile: async ({ file }: { file: File }) => {

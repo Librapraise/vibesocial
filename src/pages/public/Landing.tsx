@@ -18,6 +18,86 @@ import {
   Martini
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import logoImg from "@/assets/logo.png";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 40, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 120,
+      damping: 14,
+    },
+  },
+};
+
+const cardHoverVariants = {
+  initial: { y: 0, scale: 1, borderColor: "rgba(39, 39, 42, 0.5)", boxShadow: "0 0 0px rgba(236, 72, 153, 0)" },
+  hover: {
+    y: -10,
+    scale: 1.03,
+    borderColor: "rgba(236, 72, 153, 0.6)",
+    boxShadow: "0 0 25px rgba(236, 72, 153, 0.25), inset 0 0 10px rgba(236, 72, 153, 0.1)",
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 18,
+    },
+  },
+};
+
+const glowVariants = {
+  animate1: {
+    scale: [1, 1.2, 0.85, 1],
+    x: [0, 40, -30, 0],
+    y: [0, -40, 30, 0],
+    rotate: [0, 90, 180, 360],
+    transition: {
+      duration: 15,
+      repeat: Infinity,
+      repeatType: "mirror" as const,
+      ease: "linear",
+    },
+  },
+  animate2: {
+    scale: [1, 0.8, 1.25, 1],
+    x: [0, -50, 40, 0],
+    y: [0, 30, -40, 0],
+    rotate: [0, -90, -180, -360],
+    transition: {
+      duration: 18,
+      repeat: Infinity,
+      repeatType: "mirror" as const,
+      ease: "linear",
+    },
+  },
+  animate3: {
+    scale: [1, 1.3, 0.9, 1],
+    x: [0, 30, -20, 0],
+    y: [0, -25, 35, 0],
+    transition: {
+      duration: 12,
+      repeat: Infinity,
+      repeatType: "mirror" as const,
+      ease: "easeInOut",
+    },
+  },
+};
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -28,19 +108,35 @@ export default function Landing() {
     loginAsDemo();
     navigate("/Home");
   };
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans overflow-x-hidden selection:bg-pink-500 selection:text-white">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans overflow-x-hidden selection:bg-pink-500 selection:text-white relative">
+      {/* Futuristic Grid Pattern Overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f0f11_1px,transparent_1px),linear-gradient(to_bottom,#0f0f11_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none opacity-40"></div>
+
       {/* Animated glow effects in background */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-pink-600/10 rounded-full blur-[120px] pointer-events-none animate-pulse"></div>
-      <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[150px] pointer-events-none"></div>
-      <div className="absolute bottom-10 left-1/3 w-80 h-80 bg-orange-600/5 rounded-full blur-[100px] pointer-events-none"></div>
+      <motion.div 
+        variants={glowVariants}
+        animate="animate1"
+        className="absolute top-0 left-1/4 w-96 h-96 bg-pink-600/10 rounded-full blur-[120px] pointer-events-none"
+      ></motion.div>
+      <motion.div 
+        variants={glowVariants}
+        animate="animate2"
+        className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[150px] pointer-events-none"
+      ></motion.div>
+      <motion.div 
+        variants={glowVariants}
+        animate="animate3"
+        className="absolute bottom-10 left-1/3 w-80 h-80 bg-orange-600/5 rounded-full blur-[100px] pointer-events-none"
+      ></motion.div>
 
       {/* Modern Navigation Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/70 backdrop-blur-md sticky top-0 z-50 transition duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 font-black text-2xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600">
-            <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-pink-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-pink-500/20">VS</span>
+            <img src={logoImg} alt="VibeSocial Logo" className="w-10 h-10 object-cover rounded-xl shadow-lg shadow-pink-500/20 border border-zinc-800" />
             VibeSocial
           </Link>
 
@@ -69,15 +165,27 @@ export default function Landing() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-20 pb-24 md:pt-32 md:pb-36 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
+      <motion.section 
+        variants={containerVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: false, margin: "-100px" }}
+        className="relative pt-20 pb-24 md:pt-32 md:pb-36 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center"
+      >
         {/* Dynamic Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-semibold mb-8 animate-fade-in shadow-inner">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+        <motion.div 
+          variants={itemVariants}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900/80 border border-zinc-800 text-zinc-300 text-xs font-semibold mb-8 shadow-inner hover:border-pink-500/30 transition-all duration-300"
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
           <span>Crowdsourcing local vibes in real-time</span>
-        </div>
+        </motion.div>
 
         {/* Main Heading */}
-        <h1 className="text-5xl sm:text-7xl font-black tracking-tight leading-none mb-8 max-w-5xl">
+        <motion.h1 
+          variants={itemVariants}
+          className="text-5xl sm:text-7xl font-black tracking-tight leading-none mb-8 max-w-5xl"
+        >
           Know the{" "}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-500 to-purple-500">
             Vibe
@@ -86,15 +194,21 @@ export default function Landing() {
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-indigo-500 to-blue-500">
             Go.
           </span>
-        </h1>
+        </motion.h1>
 
         {/* Subtitle */}
-        <p className="text-zinc-400 text-lg sm:text-xl max-w-3xl leading-relaxed mb-12">
+        <motion.p 
+          variants={itemVariants}
+          className="text-zinc-400 text-lg sm:text-xl max-w-3xl leading-relaxed mb-12"
+        >
           VibeSocial is the premier platform connecting partygoers, lounge lovers, and event organizers. Check crowd levels, wait times, music style, and vibe scores in real-time.
-        </p>
+        </motion.p>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-5 justify-center w-full max-w-sm mb-16">
+        <motion.div 
+          variants={itemVariants}
+          className="flex flex-col sm:flex-row gap-5 justify-center w-full max-w-sm mb-16"
+        >
           <Link to="/Home" className="w-full sm:w-auto">
             <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-950 font-bold py-6 px-8 rounded-xl flex items-center justify-center gap-2 transition duration-300 group shadow-xl">
               Explore Live Venues
@@ -106,10 +220,13 @@ export default function Landing() {
               Create Account
             </Button>
           </Link>
-        </div>
+        </motion.div>
 
         {/* Visual Mockup Dashboard Container */}
-        <div className="w-full max-w-5xl rounded-3xl overflow-hidden border border-zinc-800/80 bg-zinc-900/40 p-4 sm:p-6 backdrop-blur shadow-2xl relative group">
+        <motion.div 
+          variants={itemVariants}
+          className="w-full max-w-5xl rounded-3xl overflow-hidden border border-zinc-800/80 bg-zinc-900/40 p-4 sm:p-6 backdrop-blur shadow-2xl relative group"
+        >
           <div className="absolute inset-0 bg-gradient-to-b from-pink-500/5 via-transparent to-transparent pointer-events-none"></div>
           {/* Card Headers */}
           <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4 mb-6">
@@ -127,7 +244,12 @@ export default function Landing() {
           {/* Simulated Application UI Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
             {/* Mock Card 1 */}
-            <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800/50 flex flex-col justify-between hover:border-pink-500/30 transition duration-300 relative overflow-hidden">
+            <motion.div 
+              variants={cardHoverVariants}
+              initial="initial"
+              whileHover="hover"
+              className="p-6 rounded-2xl bg-zinc-950 border flex flex-col justify-between relative overflow-hidden cursor-pointer"
+            >
               <div>
                 <div className="flex justify-between items-start mb-4">
                   <span className="px-3 py-1 rounded-full bg-orange-500/10 text-orange-400 text-xs font-semibold uppercase tracking-wider">Lounge</span>
@@ -153,10 +275,15 @@ export default function Landing() {
                 <span className="text-xs text-zinc-500">24 updates tonight</span>
                 <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
               </div>
-            </div>
+            </motion.div>
 
             {/* Mock Card 2 */}
-            <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800/50 flex flex-col justify-between hover:border-pink-500/30 transition duration-300 relative overflow-hidden">
+            <motion.div 
+              variants={cardHoverVariants}
+              initial="initial"
+              whileHover="hover"
+              className="p-6 rounded-2xl bg-zinc-950 border flex flex-col justify-between relative overflow-hidden cursor-pointer"
+            >
               <div>
                 <div className="flex justify-between items-start mb-4">
                   <span className="px-3 py-1 rounded-full bg-pink-500/10 text-pink-400 text-xs font-semibold uppercase tracking-wider">Nightclub</span>
@@ -182,10 +309,15 @@ export default function Landing() {
                 <span className="text-xs text-zinc-500">92 updates tonight</span>
                 <span className="w-2.5 h-2.5 rounded-full bg-pink-500"></span>
               </div>
-            </div>
+            </motion.div>
 
             {/* Mock Card 3 */}
-            <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800/50 flex flex-col justify-between hover:border-pink-500/30 transition duration-300 relative overflow-hidden">
+            <motion.div 
+              variants={cardHoverVariants}
+              initial="initial"
+              whileHover="hover"
+              className="p-6 rounded-2xl bg-zinc-950 border flex flex-col justify-between relative overflow-hidden cursor-pointer"
+            >
               <div>
                 <div className="flex justify-between items-start mb-4">
                   <span className="px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-semibold uppercase tracking-wider">Rooftop</span>
@@ -211,26 +343,42 @@ export default function Landing() {
                 <span className="text-xs text-zinc-500">42 updates tonight</span>
                 <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
               </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
       {/* Core Features Section */}
       <section id="features" className="py-24 bg-zinc-950 border-t border-zinc-900 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-20">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, margin: "-100px" }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-20"
+          >
             <h2 className="text-3xl sm:text-5xl font-black tracking-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-zinc-100 to-zinc-400">
               Engineered for the Perfect Night
             </h2>
             <p className="text-zinc-400 max-w-2xl mx-auto text-lg">
               No more guessing if a bar is empty, has a long line, or plays the music you hate.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: false, margin: "-100px" }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-8"
+          >
             {/* Feature 1 */}
-            <div className="p-8 rounded-3xl bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700/80 transition duration-300 group">
+            <motion.div 
+              variants={itemVariants}
+              whileHover={{ y: -10, borderColor: "rgba(249, 115, 22, 0.6)", boxShadow: "0 0 20px rgba(249, 115, 22, 0.2)" }}
+              className="p-8 rounded-3xl bg-zinc-900/50 border border-zinc-800 transition duration-300 group cursor-pointer"
+            >
               <div className="p-3.5 w-14 h-14 rounded-2xl bg-orange-500/10 text-orange-500 mb-6 flex items-center justify-center group-hover:scale-110 transition duration-300">
                 <Flame className="w-7 h-7" />
               </div>
@@ -238,10 +386,14 @@ export default function Landing() {
               <p className="text-zinc-400 text-sm leading-relaxed">
                 Crowdsourced ratings create a unified, real-time vibe score representing energy levels, audio quality, and overall crowd sentiment.
               </p>
-            </div>
+            </motion.div>
 
             {/* Feature 2 */}
-            <div className="p-8 rounded-3xl bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700/80 transition duration-300 group">
+            <motion.div 
+              variants={itemVariants}
+              whileHover={{ y: -10, borderColor: "rgba(236, 72, 153, 0.6)", boxShadow: "0 0 20px rgba(236, 72, 153, 0.2)" }}
+              className="p-8 rounded-3xl bg-zinc-900/50 border border-zinc-800 transition duration-300 group cursor-pointer"
+            >
               <div className="p-3.5 w-14 h-14 rounded-2xl bg-pink-500/10 text-pink-500 mb-6 flex items-center justify-center group-hover:scale-110 transition duration-300">
                 <Clock className="w-7 h-7" />
               </div>
@@ -249,10 +401,14 @@ export default function Landing() {
               <p className="text-zinc-400 text-sm leading-relaxed">
                 Instantly check wait times submitted by users currently at the venue. Know before you leave if it is packed, active, or empty.
               </p>
-            </div>
+            </motion.div>
 
             {/* Feature 3 */}
-            <div className="p-8 rounded-3xl bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700/80 transition duration-300 group">
+            <motion.div 
+              variants={itemVariants}
+              whileHover={{ y: -10, borderColor: "rgba(168, 85, 247, 0.6)", boxShadow: "0 0 20px rgba(168, 85, 247, 0.2)" }}
+              className="p-8 rounded-3xl bg-zinc-900/50 border border-zinc-800 transition duration-300 group cursor-pointer"
+            >
               <div className="p-3.5 w-14 h-14 rounded-2xl bg-purple-500/10 text-purple-500 mb-6 flex items-center justify-center group-hover:scale-110 transition duration-300">
                 <Ticket className="w-7 h-7" />
               </div>
@@ -260,8 +416,8 @@ export default function Landing() {
               <p className="text-zinc-400 text-sm leading-relaxed">
                 Purchase tickets for local events directly through the app. Scan your digital QR ticket at the door for rapid check-ins.
               </p>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
@@ -269,7 +425,12 @@ export default function Landing() {
       <section id="how-it-works" className="py-24 bg-zinc-900/30 border-t border-zinc-900 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div>
+            <motion.div
+              initial={{ opacity: 0, x: -40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: false, margin: "-100px" }}
+              transition={{ duration: 0.6 }}
+            >
               <h2 className="text-3xl sm:text-5xl font-black tracking-tight mb-8">
                 How VibeSocial Works
               </h2>
@@ -299,10 +460,16 @@ export default function Landing() {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Visual Flow Representation */}
-            <div className="relative p-6 rounded-3xl bg-zinc-900 border border-zinc-800">
+            <motion.div 
+              initial={{ opacity: 0, x: 40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: false, margin: "-100px" }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="relative p-6 rounded-3xl bg-zinc-900 border border-zinc-800"
+            >
               <div className="space-y-4">
                 <div className="flex items-center gap-3 p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80">
                   <Activity className="w-5 h-5 text-pink-500 animate-pulse" />
@@ -327,7 +494,7 @@ export default function Landing() {
                   <span className="w-2 h-2 rounded-full bg-pink-500 animate-ping"></span>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -335,18 +502,31 @@ export default function Landing() {
       {/* Use Cases Section */}
       <section id="use-cases" className="py-24 bg-zinc-950 border-t border-zinc-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, margin: "-100px" }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
             <h2 className="text-3xl sm:text-5xl font-black tracking-tight mb-4">
               Designed for Everyone in the Scene
             </h2>
             <p className="text-zinc-400 max-w-2xl mx-auto text-lg">
               Whether you are going out for a drink or managing the entire dancefloor.
             </p>
-          </div>
+          </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             {/* For Partygoers */}
-            <div className="p-8 rounded-3xl bg-zinc-900/30 border border-zinc-800/80 hover:border-zinc-700 transition duration-300">
+            <motion.div 
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: false, margin: "-100px" }}
+              transition={{ duration: 0.6 }}
+              whileHover={{ y: -10, borderColor: "rgba(236, 72, 153, 0.5)", boxShadow: "0 0 25px rgba(236, 72, 153, 0.2)" }}
+              className="p-8 rounded-3xl bg-zinc-900/30 border border-zinc-800/80 hover:border-zinc-700 transition duration-300 cursor-pointer"
+            >
               <div className="p-3 w-12 h-12 rounded-xl bg-pink-500/10 text-pink-500 mb-6 flex items-center justify-center">
                 <Users className="w-6 h-6" />
               </div>
@@ -368,10 +548,17 @@ export default function Landing() {
                   Personalized dashboard & alerts
                 </li>
               </ul>
-            </div>
+            </motion.div>
 
             {/* For Organizers */}
-            <div className="p-8 rounded-3xl bg-zinc-900/30 border border-zinc-800/80 hover:border-zinc-700 transition duration-300">
+            <motion.div 
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: false, margin: "-100px" }}
+              transition={{ duration: 0.6 }}
+              whileHover={{ y: -10, borderColor: "rgba(249, 115, 22, 0.5)", boxShadow: "0 0 25px rgba(249, 115, 22, 0.2)" }}
+              className="p-8 rounded-3xl bg-zinc-900/30 border border-zinc-800/80 hover:border-zinc-700 transition duration-300 cursor-pointer"
+            >
               <div className="p-3 w-12 h-12 rounded-xl bg-orange-500/10 text-orange-500 mb-6 flex items-center justify-center">
                 <Martini className="w-6 h-6" />
               </div>
@@ -393,14 +580,20 @@ export default function Landing() {
                   Real-time audience analytics & insights
                 </li>
               </ul>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Pricing / Plan Teaser Section */}
       <section className="py-20 bg-zinc-900/40 border-t border-zinc-900 text-center relative">
-        <div className="max-w-4xl mx-auto px-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: false }}
+          transition={{ duration: 0.6 }}
+          className="max-w-4xl mx-auto px-4"
+        >
           <h2 className="text-3xl sm:text-5xl font-black tracking-tight mb-6">
             Ready to Amplify Your Nights?
           </h2>
@@ -417,7 +610,7 @@ export default function Landing() {
               Try Local Demo Free
             </Button>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* Footer */}
@@ -426,7 +619,7 @@ export default function Landing() {
           {/* Brand Info */}
           <div>
             <div className="flex items-center gap-3 font-black text-xl tracking-tight text-white mb-4">
-              <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-pink-600 flex items-center justify-center text-white font-black text-sm">VS</span>
+              <img src={logoImg} alt="VibeSocial Logo" className="w-8 h-8 object-cover rounded-lg border border-zinc-800" />
               VibeSocial
             </div>
             <p className="text-zinc-500 text-sm leading-relaxed">

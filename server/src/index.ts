@@ -18,6 +18,7 @@ import savedEventRoutes from "./routes/savedEvents";
 import uploadRoutes from "./routes/upload";
 import aiRoutes from "./routes/ai";
 import userActivitiesRoutes from "./routes/userActivities";
+import adminRoutes from "./routes/admin";
 
 const app = express();
 const PORT = env.PORT || 5000;
@@ -74,6 +75,7 @@ app.use("/api/saved-events", savedEventRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/user-activities", userActivitiesRoutes);
+app.use("/api/admin", adminRoutes);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 

@@ -677,7 +677,7 @@ export default function Profile() {
                   <p className="text-xs text-zinc-500 mt-0.5">Explore premium pre-sales and status updates alerts.</p>
                 </div>
                 <Badge className="bg-gradient-to-r from-orange-500 to-pink-500 text-white font-black px-3 py-1 rounded-lg text-xs uppercase tracking-wide">
-                  {user.subscription_tier || "Standard"}
+                  {user.subscription_tier === "vip" ? "VIP" : user.subscription_tier === "plus" ? "Plus" : "Free"}
                 </Badge>
               </div>
 

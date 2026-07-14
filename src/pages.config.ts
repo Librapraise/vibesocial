@@ -26,6 +26,7 @@ import PrivacySettings from './pages/user/PrivacySettings';
 import Profile from './pages/user/Profile';
 import Onboarding from './pages/user/Onboarding';
 import Settings from './pages/user/Settings';
+import Subscription from './pages/user/Subscription';
 import ReportBug from './pages/public/ReportBug';
 import SafetyCenter from './pages/public/SafetyCenter';
 import SubscriptionPlans from './pages/public/SubscriptionPlans';
@@ -65,6 +66,7 @@ export const pagesConfig = {
     Profile,
     Onboarding,
     Settings,
+    Subscription,
     ReportBug,
     SafetyCenter,
     SubscriptionPlans,

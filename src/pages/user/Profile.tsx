@@ -683,7 +683,7 @@ export default function Profile() {
 
               <div className="border-t border-zinc-900/50 pt-4 flex justify-between items-center text-xs">
                 <span className="text-zinc-400 font-medium">Monthly pre-sale tickets remaining: 5</span>
-                <Link to={createPageUrl("SubscriptionPlans")}>
+                <Link to={createPageUrl("Subscription")}>
                   <Button variant="ghost" size="sm" className="text-orange-400 hover:text-orange-300 font-bold p-0 flex items-center gap-1">
                     Upgrade Tier <TrendingUp className="w-3.5 h-3.5" />
                   </Button>

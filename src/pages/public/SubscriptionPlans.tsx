@@ -137,16 +137,18 @@ export default function SubscriptionPlans() {
     { Icon: Eye, label: "Venue directory" },
     { Icon: Check, label: "Check-in badges" },
   ];
+  const homeUrl = user ? createPageUrl("Home") : "/";
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans">
       {/* Navigation Header */}
       <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600">
+          <Link to={homeUrl} className="flex items-center gap-2 font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600">
             <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-pink-600 flex items-center justify-center text-white font-black text-sm">VS</span>
             VibeSocial
           </Link>
-          <Link to="/">
+          <Link to={homeUrl}>
             <Button variant="ghost" className="text-zinc-400 hover:text-white flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" />
               Back to Home
@@ -208,23 +210,31 @@ export default function SubscriptionPlans() {
                 </ul>
 
                 <Button
-                  onClick={() => handleSelect(tier.key)}
-                  disabled={isCurrent}
+                  onClick={() => {
+                    if (user) {
+                      window.location.href = createPageUrl("Subscription");
+                    } else {
+                      window.location.href = createPageUrl("Login");
+                    }
+                  }}
+                  disabled={isCurrent && !!user}
                   className={cn(
                     "w-full",
-                    isCurrent
+                    isCurrent && user
                       ? "bg-zinc-800 text-zinc-500 border border-zinc-700"
                       : tier.popular
-                        ? "bg-orange-500 hover:bg-orange-600 text-white"
+                        ? "bg-orange-500 hover:bg-orange-600 text-white font-bold"
                         : "bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700"
                   )}
                 >
-                  {isCurrent ? (
+                  {isCurrent && user ? (
                     <>
                       <Check className="w-4 h-4" /> Current Plan
                     </>
-                  ) : (
+                  ) : user ? (
                     tier.cta
+                  ) : (
+                    "Sign In to Subscribe"
                   )}
                 </Button>
               </div>

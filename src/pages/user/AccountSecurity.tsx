@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
 import {
   ArrowLeft,
   Shield,
@@ -52,11 +55,19 @@ type LinkedAccount = { name: string; icon: string; desc: string; connected: bool
 type CurrentUser = { email?: string; check_in_privacy?: string } | null;
 
 export default function AccountSecurity() {
+  const { toast } = useToast();
   const [user, setUser] = useState<CurrentUser>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [privacyLevel, setPrivacyLevel] = useState<string>("public");
   const [saving, setSaving] = useState<boolean>(false);
   const [saved, setSaved] = useState<boolean>(false);
+
+  // Password fields
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   useEffect(() => {
     base44.auth
@@ -75,16 +86,61 @@ export default function AccountSecurity() {
     try {
       await base44.auth.updateMe({ check_in_privacy: privacyLevel });
       setSaved(true);
+      toast({
+        title: "Privacy Updated",
+        description: "Your check-in privacy settings have been updated.",
+      });
       setTimeout(() => setSaved(false), 2500);
-    } catch (err) {
-      // ignore
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update privacy settings.",
+        variant: "destructive",
+      });
     }
     setSaving(false);
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess(false);
+
+    if (newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters long.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      await base44.auth.changePassword(newPassword);
+      setPasswordSuccess(true);
+      setNewPassword("");
+      setConfirmPassword("");
+      toast({
+        title: "Success",
+        description: "Your password has been changed successfully.",
+      });
+    } catch (err: any) {
+      setPasswordError(err.message || "Failed to update password. Please try again.");
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update password.",
+        variant: "destructive",
+      });
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
@@ -92,13 +148,13 @@ export default function AccountSecurity() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center bg-zinc-950">
         <Shield className="w-16 h-16 text-zinc-700" />
         <div>
           <h2 className="text-xl font-bold text-white mb-1">Sign in to manage security</h2>
           <p className="text-zinc-500 text-sm">Update your password, linked accounts, and privacy.</p>
         </div>
-        <Button onClick={() => base44.auth.redirectToLogin("/account-security")} className="bg-orange-500 hover:bg-orange-600 text-white">
+        <Button onClick={() => base44.auth.redirectToLogin("/account-security")} className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-2 rounded-xl">
           Sign In
         </Button>
       </div>
@@ -106,12 +162,12 @@ export default function AccountSecurity() {
   }
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-20 bg-zinc-950 text-white">
       <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 border-b border-zinc-800">
         <div className="max-w-2xl mx-auto px-4 py-5">
           <Link to={createPageUrl("Home")}>
             <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white mb-3 -ml-2">
-              <ArrowLeft className="w-4 h-4" /> Back
+              <ArrowLeft className="w-4 h-4 mr-1.5" /> Back Home
             </Button>
           </Link>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -122,27 +178,58 @@ export default function AccountSecurity() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* Password */}
+        {/* Password form */}
         <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <KeyRound className="w-5 h-5 text-orange-400" />
-            <h2 className="text-lg font-bold text-white">Password</h2>
+            <h2 className="text-lg font-bold text-white">Change Password</h2>
           </div>
-          <p className="text-zinc-400 text-sm mb-4">
-            Password changes are handled securely through the login system. Use the button below to reset your password.
-          </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button
-              onClick={() => base44.auth.redirectToLogin("/account-security")}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              <Lock className="w-4 h-4" /> Reset Password
-            </Button>
-            <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-              <Smartphone className="w-3.5 h-3.5" />
-              Signed in as {user.email}
+          
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-zinc-400 text-xs">New Password</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                className="bg-zinc-950 border-zinc-800 focus-visible:ring-orange-500 text-white h-11"
+              />
             </div>
-          </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-zinc-400 text-xs">Confirm New Password</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repeat new password"
+                className="bg-zinc-950 border-zinc-800 focus-visible:ring-orange-500 text-white h-11"
+              />
+            </div>
+
+            {passwordError && <p className="text-red-400 text-xs font-semibold">{passwordError}</p>}
+            {passwordSuccess && (
+              <p className="text-green-400 text-xs font-semibold flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-green-400" /> Password updated successfully!
+              </p>
+            )}
+
+            <div className="flex items-center justify-between pt-2">
+              <Button
+                type="submit"
+                disabled={passwordSaving}
+                className="bg-orange-500 hover:bg-orange-600 text-white font-bold h-11 px-6 rounded-xl"
+              >
+                {passwordSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
+                Update Password
+              </Button>
+              <div className="flex items-center gap-1.5 text-xs text-zinc-500 font-medium">
+                <Smartphone className="w-3.5 h-3.5" />
+                Signed in as {user.email}
+              </div>
+            </div>
+          </form>
         </section>
 
         {/* Linked Accounts */}
@@ -169,14 +256,14 @@ export default function AccountSecurity() {
                     <CheckCircle2 className="w-3 h-3 mr-1" /> Connected
                   </Badge>
                 ) : (
-                  <Button variant="outline" size="sm" disabled className="border-zinc-700 text-zinc-500 text-xs">
+                  <Button variant="outline" size="sm" disabled className="border-zinc-800 text-zinc-500 text-xs">
                     Connect
                   </Button>
                 )}
               </div>
             ))}
           </div>
-          <p className="text-zinc-600 text-xs mt-3">
+          <p className="text-zinc-650 text-xs mt-3 font-medium">
             Social login integrations will appear here once enabled for your account.
           </p>
         </section>
@@ -223,10 +310,10 @@ export default function AccountSecurity() {
           <Button
             onClick={handleSavePrivacy}
             disabled={saving}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold h-11 rounded-xl"
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-            {saving ? "Saving…" : "Save Privacy Settings"}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Shield className="w-4 h-4 mr-2" />}
+            Save Privacy Settings
           </Button>
           {saved && (
             <p className="text-green-400 text-xs text-center mt-2 flex items-center justify-center gap-1">

@@ -19,6 +19,76 @@ axiosInstance.interceptors.request.use((config) => {
   return config;
 });
 
+// Automatic Token Refresh Interceptor
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return axiosInstance(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      const refreshToken = localStorage.getItem("vibe_refresh_token");
+      if (!refreshToken) {
+        isRefreshing = false;
+        return Promise.reject(error);
+      }
+
+      try {
+        const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+          refresh_token: refreshToken,
+        });
+
+        if (res.data.access_token) {
+          localStorage.setItem("vibe_token", res.data.access_token);
+          if (res.data.refresh_token) {
+            localStorage.setItem("vibe_refresh_token", res.data.refresh_token);
+          }
+          axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${res.data.access_token}`;
+          originalRequest.headers.Authorization = `Bearer ${res.data.access_token}`;
+          processQueue(null, res.data.access_token);
+          isRefreshing = false;
+          return axiosInstance(originalRequest);
+        }
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        isRefreshing = false;
+        localStorage.removeItem("vibe_token");
+        localStorage.removeItem("vibe_refresh_token");
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 const ENDPOINT_MAP: Record<string, string> = {
   TicketType: "/ticket-types",
   StatusUpdate: "/status-updates",
@@ -82,19 +152,53 @@ export const base44Live = {
     },
     logout: () => {
       localStorage.removeItem("vibe_token");
+      localStorage.removeItem("vibe_refresh_token");
       window.location.reload();
     },
     setToken: (token: string) => {
       localStorage.setItem("vibe_token", token);
     },
     isAuthenticated: async () => {
-      return !!localStorage.getItem("vibe_token");
+      const token = localStorage.getItem("vibe_token");
+      if (!token) return false;
+      try {
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          if (payload.exp && Date.now() >= payload.exp * 1000) {
+            const refreshToken = localStorage.getItem("vibe_refresh_token");
+            if (refreshToken) {
+              const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+                refresh_token: refreshToken,
+              });
+              if (res.data.access_token) {
+                localStorage.setItem("vibe_token", res.data.access_token);
+                if (res.data.refresh_token) {
+                  localStorage.setItem("vibe_refresh_token", res.data.refresh_token);
+                }
+                return true;
+              }
+            }
+            return false;
+          }
+        }
+      } catch (e) {
+        return false;
+      }
+      return true;
     },
     loginViaEmailPassword: async (data: any) => {
       const response = await axiosInstance.post("/auth/login", data);
       if (response.data.access_token) {
         localStorage.setItem("vibe_token", response.data.access_token);
       }
+      if (response.data.refresh_token) {
+        localStorage.setItem("vibe_refresh_token", response.data.refresh_token);
+      }
+      return response.data;
+    },
+    changePassword: async (password: string) => {
+      const response = await axiosInstance.post("/auth/change-password", { password });
       return response.data;
     }
   },
@@ -172,5 +276,17 @@ export const base44Live = {
       const response = await axiosInstance.delete(`/admin/status-updates/${statusId}`);
       return response.data;
     },
+  },
+  orders: {
+    cancel: async (id: string) => {
+      const response = await axiosInstance.post(`/orders/${id}/cancel`);
+      return response.data;
+    }
+  },
+  reviews: {
+    update: async (id: string, data: any) => {
+      const response = await axiosInstance.put(`/reviews/${id}`, data);
+      return response.data;
+    }
   },
 };

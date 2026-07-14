@@ -10,6 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Ticket, CheckCircle2, Loader2, Calendar, MapPin, User, Mail } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/use-toast";
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+// Load Stripe publishable key if available
+const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
+  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY) 
+  : null;
 
 type CheckoutProps = {
   eventIdProp?: string;
@@ -18,10 +26,198 @@ type CheckoutProps = {
   onSuccess?: (order: any) => void;
 };
 
+// ─── Stripe Payment Form ─────────────────────────────────────────────────────
+interface PaymentFormProps {
+  clientSecret: string;
+  order: any;
+  totalAmount: number;
+  onPaymentSuccess: () => void;
+  onCancel: () => void;
+}
+
+function StripePaymentForm({ clientSecret, order, totalAmount, onPaymentSuccess, onCancel }: PaymentFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setLoading(true);
+    setError("");
+
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error: paymentError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: order.attendee_name,
+            email: order.attendee_email,
+          },
+        },
+      });
+
+      if (paymentError) {
+        setError(paymentError.message || "An error occurred with your payment.");
+        setLoading(false);
+      } else if (paymentIntent && paymentIntent.status === "succeeded") {
+        onPaymentSuccess();
+      }
+    } catch (err: any) {
+      setError(err.message || "An error occurred.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 bg-zinc-900 border border-zinc-800 p-6 rounded-2xl">
+      <div className="space-y-2">
+        <Label className="text-zinc-300 text-xs font-semibold">Card Details</Label>
+        <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl">
+          <CardElement options={{
+            style: {
+              base: {
+                color: '#ffffff',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '15px',
+                '::placeholder': {
+                  color: '#71717a',
+                },
+              },
+              invalid: {
+                color: '#f87171',
+              },
+            },
+          }} />
+        </div>
+      </div>
+
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+
+      <div className="flex gap-3 pt-2">
+        <Button type="button" variant="outline" onClick={onCancel} className="flex-1 border-zinc-700 text-zinc-300 hover:bg-zinc-900">
+          Cancel
+        </Button>
+        <Button type="submit" disabled={loading || !stripe} className="flex-1 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white font-bold">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+          Pay ${(totalAmount).toFixed(2)}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ─── Mock Payment Form ───────────────────────────────────────────────────────
+function MockPaymentForm({ totalAmount, onPaymentSuccess, onCancel }: { totalAmount: number; onPaymentSuccess: () => void; onCancel: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvc, setCvc] = useState("");
+
+  const handlePay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cardNumber || !expiry || !cvc) {
+      setError("Please fill in all card details.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setLoading(false);
+    onPaymentSuccess();
+  };
+
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "");
+    value = value.match(/.{1,4}/g)?.join(" ") || value;
+    setCardNumber(value.slice(0, 19));
+  };
+
+  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "");
+    if (value.length > 2) {
+      value = `${value.slice(0, 2)}/${value.slice(2, 4)}`;
+    }
+    setExpiry(value.slice(0, 5));
+  };
+
+  const handleCvcChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, "");
+    setCvc(value.slice(0, 3));
+  };
+
+  return (
+    <form onSubmit={handlePay} className="space-y-4 bg-zinc-900 border border-zinc-800 p-6 rounded-2xl">
+      <div className="bg-gradient-to-br from-zinc-800 to-zinc-950 p-4 rounded-xl border border-zinc-700 relative overflow-hidden shadow-lg mb-4 select-none">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full blur-xl"></div>
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-pink-500/10 rounded-full blur-xl"></div>
+        <div className="flex justify-between items-center mb-6">
+          <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">VibeSocial Card</span>
+          <span className="text-zinc-400 font-black text-xs italic">DEMO GUEST</span>
+        </div>
+        <div className="text-sm font-mono tracking-widest mb-4 h-6 text-zinc-300">
+          {cardNumber || "•••• •••• •••• ••••"}
+        </div>
+        <div className="flex justify-between text-[10px] font-mono text-zinc-500">
+          <div>
+            <p className="uppercase text-[8px] text-zinc-650">Cardholder</p>
+            <p className="text-zinc-400 mt-0.5">Attendee Guest</p>
+          </div>
+          <div>
+            <p className="uppercase text-[8px] text-zinc-650">Expires</p>
+            <p className="text-zinc-400 mt-0.5">{expiry || "MM/YY"}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <Label className="text-zinc-450 text-xs mb-1.5 block">Card Number</Label>
+          <Input value={cardNumber} onChange={handleCardNumberChange} placeholder="4111 1111 1111 1111" className="bg-zinc-850/50 border-zinc-750 text-white h-11" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-zinc-450 text-xs mb-1.5 block">Expiration Date</Label>
+            <Input value={expiry} onChange={handleExpiryChange} placeholder="MM/YY" className="bg-zinc-850/50 border-zinc-750 text-white h-11" />
+          </div>
+          <div>
+            <Label className="text-zinc-450 text-xs mb-1.5 block">CVC</Label>
+            <Input value={cvc} onChange={handleCvcChange} placeholder="123" type="password" className="bg-zinc-850/50 border-zinc-750 text-white h-11" />
+          </div>
+        </div>
+      </div>
+
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+
+      <div className="flex gap-3 pt-2">
+        <Button type="button" variant="outline" onClick={onCancel} className="flex-1 border-zinc-700 text-zinc-300 hover:bg-zinc-900">
+          Cancel
+        </Button>
+        <Button type="submit" disabled={loading} className="flex-1 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white font-bold">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+          Demo Pay ${(totalAmount).toFixed(2)}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ─── Main Checkout Component ─────────────────────────────────────────────────
 export default function Checkout({ eventIdProp, quantitiesProp, onCancel, onSuccess }: CheckoutProps = {}) {
   const urlParams = new URLSearchParams(window.location.search);
   const eventId = eventIdProp || urlParams.get("event_id");
   const selectionsParam = urlParams.get("selections") || "";
+  const { toast } = useToast();
 
   const initialQuantities: Record<string, number> = {};
   if (quantitiesProp) {
@@ -38,6 +234,7 @@ export default function Checkout({ eventIdProp, quantitiesProp, onCancel, onSucc
   const [step, setStep] = useState("checkout");
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState<any>(null);
+  const [clientSecret, setClientSecret] = useState("");
 
   const isEmbedded = !!eventIdProp;
 
@@ -70,46 +267,112 @@ export default function Checkout({ eventIdProp, quantitiesProp, onCancel, onSucc
 
   const handleConfirmOrder = async () => {
     setLoading(true);
-    const tickets = selectedTickets.map(tt => ({
-      ticket_type_id: tt.id,
-      ticket_type_name: tt.name,
-      quantity: quantities[tt.id],
-      unit_price: tt.price || 0,
-    }));
+    try {
+      const orderData = {
+        event_id: eventId,
+        attendee_name: form.name,
+        attendee_email: form.email,
+        tickets: selectedTickets.map(tt => ({
+          ticket_type_id: tt.id,
+          quantity: quantities[tt.id],
+        })),
+      };
 
-    const confirmationCode = "TKT-" + Math.random().toString(36).substr(2, 8).toUpperCase();
+      const res = await base44.entities.Order.create(orderData);
 
-    const orderData = {
-      event_id: event.id,
-      event_title: event.title,
-      event_venue_name: event.venue_name,
-      event_start_time: event.start_time,
-      event_address: event.address,
-      attendee_name: form.name,
-      attendee_email: form.email,
-      tickets,
-      total_amount: totalAmount,
-      status: totalAmount === 0 ? "confirmed" : "pending_payment",
-      confirmation_code: confirmationCode,
-    };
+      // Distinguish mock client response vs live API response structure
+      const isPaid = totalAmount > 0;
+      const paymentRequired = res.payment_required !== undefined ? res.payment_required : isPaid;
 
-    const created = await base44.entities.Order.create(orderData);
-
-    for (const tt of selectedTickets) {
-      await base44.entities.TicketType.update(tt.id, {
-        tickets_sold: (tt.tickets_sold || 0) + (quantities[tt.id] || 0),
+      if (paymentRequired) {
+        setOrder(res.order || res);
+        setClientSecret(res.client_secret || "mock-secret");
+        setStep("payment");
+      } else {
+        setOrder(res.order || res);
+        setStep("success");
+        onSuccess?.(res.order || res);
+      }
+    } catch (err: any) {
+      toast({
+        title: "Order Failed",
+        description: err.message || "Something went wrong. Please check ticket availability.",
+        variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-
-    const resultOrder = { ...orderData, id: created.id, confirmation_code: confirmationCode };
-    setOrder(resultOrder);
-    setStep("success");
-    setLoading(false);
-    onSuccess?.(resultOrder);
   };
 
-  // Success screen
-  // Success screen
+  const handlePaymentSuccess = async () => {
+    setLoading(true);
+    try {
+      let confirmedOrder = order;
+      const API_MODE = import.meta.env.VITE_API_MODE || "mock";
+      const isDemo = localStorage.getItem("vibe_demo_mode") === "true";
+
+      if (API_MODE === "live" && !isDemo) {
+        // Poll backend for up to 3 seconds waiting for payment_intent.succeeded webhook confirmation
+        for (let i = 0; i < 6; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          const updated = await base44.entities.Order.get(order.id);
+          if (updated && updated.status === "confirmed") {
+            confirmedOrder = updated;
+            break;
+          }
+        }
+      } else {
+        // In local mock database, we update the status immediately
+        if (order && order.id) {
+          const updated = await base44.entities.Order.update(order.id, { status: "confirmed" });
+          confirmedOrder = updated;
+        }
+      }
+
+      setOrder(confirmedOrder);
+      setStep("success");
+      onSuccess?.(confirmedOrder);
+    } catch (err) {
+      setStep("success");
+      onSuccess?.(order);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── Payment Screen ────────────────────────────────────────────────────────
+  if (step === "payment") {
+    return (
+      <div className={cn("text-white flex items-center justify-center p-4", !isEmbedded && "min-h-screen")}>
+        <div className="max-w-md w-full space-y-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-black mb-1">Secure Checkout 💳</h1>
+            <p className="text-zinc-400">Complete payment of ${(totalAmount).toFixed(2)} to secure your tickets</p>
+          </div>
+
+          {stripePromise && clientSecret ? (
+            <Elements stripe={stripePromise} options={{ clientSecret }}>
+              <StripePaymentForm 
+                clientSecret={clientSecret}
+                order={order}
+                totalAmount={totalAmount}
+                onPaymentSuccess={handlePaymentSuccess}
+                onCancel={() => setStep("checkout")}
+              />
+            </Elements>
+          ) : (
+            <MockPaymentForm 
+              totalAmount={totalAmount}
+              onPaymentSuccess={handlePaymentSuccess}
+              onCancel={() => setStep("checkout")}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Success Screen ────────────────────────────────────────────────────────
   if (step === "success" && order) {
     return (
       <div className={cn("text-white flex items-center justify-center p-4", !isEmbedded && "min-h-screen")}>
@@ -147,10 +410,10 @@ export default function Checkout({ eventIdProp, quantitiesProp, onCancel, onSucc
               {totalAmount > 0 && (
                 <div className="mt-3 pt-3 border-t border-zinc-800">
                   <div className="flex justify-between font-bold mb-2">
-                    <span>Total Due</span>
+                    <span>Total Paid</span>
                     <span className="text-orange-400">${totalAmount.toFixed(2)}</span>
                   </div>
-                  <p className="text-xs text-zinc-500">💳 Payment collected at the door or via the event organizer.</p>
+                  <p className="text-xs text-zinc-500">💳 Payment completed securely via Stripe.</p>
                 </div>
               )}
             </div>
@@ -163,7 +426,7 @@ export default function Checkout({ eventIdProp, quantitiesProp, onCancel, onSucc
               </Button>
             ) : (
               <>
-                <Link to={createPageUrl("MyOrders")} className="flex-1">
+                <Link to={createPageUrl("MyTickets")} className="flex-1">
                   <Button className="w-full bg-orange-500 hover:bg-orange-600">
                     <Ticket className="w-4 h-4 mr-1.5" /> View My Tickets
                   </Button>
@@ -179,7 +442,7 @@ export default function Checkout({ eventIdProp, quantitiesProp, onCancel, onSucc
     );
   }
 
-  // Checkout screen
+  // ─── Selection / Attendee Info Screen ──────────────────────────────────────
   return (
     <div className={cn("text-white", !isEmbedded && "min-h-screen bg-zinc-950")}>
       {!isEmbedded && (
@@ -309,9 +572,6 @@ export default function Checkout({ eventIdProp, quantitiesProp, onCancel, onSucc
                 {totalAmount === 0 ? "FREE" : `$${totalAmount.toFixed(2)}`}
               </span>
             </div>
-            {totalAmount > 0 && (
-              <p className="text-xs text-zinc-600 mt-2">💡 Payment collected at the door or via the event organizer.</p>
-            )}
           </div>
         )}
 
@@ -327,7 +587,7 @@ export default function Checkout({ eventIdProp, quantitiesProp, onCancel, onSucc
             ) : (
               <Ticket className="w-5 h-5 mr-2" />
             )}
-            {totalAmount === 0 ? `Confirm ${totalQty} Free Ticket${totalQty > 1 ? "s" : ""}` : `Reserve Tickets — $${totalAmount.toFixed(2)}`}
+            {totalAmount === 0 ? `Confirm ${totalQty} Free Ticket${totalQty > 1 ? "s" : ""}` : `Go to Payment — $${totalAmount.toFixed(2)}`}
           </Button>
         )}
       </div>

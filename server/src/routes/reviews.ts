@@ -13,6 +13,11 @@ const createReviewSchema = z.object({
   comment: z.string().max(1000).optional(),
 });
 
+const updateReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5).optional(),
+  comment: z.string().max(1000).optional().nullable(),
+});
+
 /**
  * GET /api/reviews?event_id=
  */
@@ -87,6 +92,41 @@ router.delete(
 
     await supabaseAdmin.from("reviews").delete().eq("id", req.params.id);
     res.json({ success: true });
+  })
+);
+
+/**
+ * PUT /api/reviews/:id
+ * Update a review (owner only)
+ */
+router.put(
+  "/:id",
+  requireAuth,
+  validate(updateReviewSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const { data: existing } = await supabaseAdmin
+      .from("reviews")
+      .select("user_id")
+      .eq("id", id)
+      .single();
+
+    if (!existing) throw new AppError("Review not found", 404);
+    if (existing.user_id !== req.user!.id && req.user!.role !== "admin") {
+      throw new AppError("You can only edit your own reviews", 403);
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("reviews")
+      .update({ ...req.body, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("*, users!user_id(name, avatar_url)")
+      .single();
+
+    if (error) throw new AppError(error.message, 400);
+
+    res.json(data);
   })
 );
 

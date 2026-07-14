@@ -16,6 +16,24 @@ const updateRoleSchema = z.object({
   role: z.enum(["attendee", "organizer", "admin"]),
 });
 
+const adminUpdateEventSchema = z.object({
+  title: z.string().min(2).optional(),
+  venue_name: z.string().min(2).optional(),
+  venue_type: z.enum(["club", "lounge", "bar", "rooftop", "house_party", "pop_up", "concert", "other"]).optional(),
+  address: z.string().min(2).optional(),
+  state: z.string().length(2).optional(),
+  description: z.string().optional(),
+  cover_image: z.string().url().optional().nullable(),
+  start_time: z.string().optional().nullable(),
+  end_time: z.string().optional().nullable(),
+  vibe_tags: z.array(z.string()).optional(),
+  is_active: z.boolean().optional(),
+  current_vibe_score: z.number().min(0).max(10).optional(),
+  current_crowd_level: z.enum(["empty", "filling_up", "active", "busy", "packed", "at_capacity"]).optional().nullable(),
+  current_wait_time: z.enum(["no_wait", "5_min", "15_min", "30_min", "45_plus_min"]).optional().nullable(),
+  status_count: z.number().int().optional(),
+});
+
 // ─── STATS OVERVIEW ──────────────────────────────────────────────────────────
 
 /**
@@ -220,6 +238,7 @@ router.get(
  */
 router.patch(
   "/events/:id",
+  validate(adminUpdateEventSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
@@ -367,6 +386,31 @@ router.delete(
       .eq("id", id);
     if (error) throw new AppError(error.message, 500);
     res.json({ success: true });
+  })
+);
+
+/**
+ * GET /api/admin/tickets
+ * List all tickets in the platform (with event and buyer details)
+ */
+router.get(
+  "/tickets",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { limit = "100", offset = "0" } = req.query;
+
+    const { data, error } = await supabaseAdmin
+      .from("tickets")
+      .select(`
+        id, status, qr_code_data, created_at,
+        users!buyer_id(id, name, email),
+        events!event_id(id, title, venue_name)
+      `)
+      .order("created_at", { ascending: false })
+      .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+    if (error) throw new AppError(error.message, 500);
+
+    res.json(data || []);
   })
 );
 

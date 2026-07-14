@@ -22,6 +22,7 @@ interface AuthContextType {
     checkAppState: () => Promise<void>;
     isDemoMode: boolean;
     loginAsDemo: () => void;
+    updateUser: (data: any) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -102,6 +103,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session) {
             // Store token for axios interceptor
             localStorage.setItem('vibe_token', session.access_token);
+            if (session.refresh_token) {
+                localStorage.setItem('vibe_refresh_token', session.refresh_token);
+            }
             setSession(session);
 
             // Fetch user profile from our users table via the API
@@ -124,6 +128,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setAuthError(null);
         } else {
             localStorage.removeItem('vibe_token');
+            localStorage.removeItem('vibe_refresh_token');
             setSession(null);
             setUser(null);
             setIsAuthenticated(false);
@@ -160,6 +165,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         window.location.href = '/Login';
     };
 
+    const updateUser = (data: any) => {
+        setUser((prev: any) => {
+            if (!prev) return prev;
+            return { ...prev, ...data };
+        });
+    };
+
     return (
         <AuthContext.Provider value={{
             user,
@@ -173,7 +185,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             navigateToLogin,
             checkAppState,
             isDemoMode,
-            loginAsDemo
+            loginAsDemo,
+            updateUser
         }}>
             {children}
         </AuthContext.Provider>

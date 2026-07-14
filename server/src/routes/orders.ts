@@ -306,4 +306,64 @@ router.get(
   })
 );
 
+/**
+ * POST /api/orders/:id/cancel
+ * Cancel an order (buyer or organizer or admin)
+ */
+router.post(
+  "/:id/cancel",
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const { data: order, error } = await supabaseAdmin
+      .from("orders")
+      .select("*, events!event_id(created_by)")
+      .eq("id", id)
+      .single();
+
+    if (error || !order) throw new AppError("Order not found", 404);
+
+    const eventCreatedBy = (order.events as any)?.created_by;
+    const isBuyer = order.buyer_id === req.user!.id;
+    const isOrganizer = eventCreatedBy === req.user!.id;
+    const isAdmin = req.user!.role === "admin";
+
+    if (!isBuyer && !isOrganizer && !isAdmin) {
+      throw new AppError("Access denied", 403);
+    }
+
+    if (order.status === "cancelled") {
+      return res.status(409).json({ error: "Order is already cancelled" });
+    }
+
+    // Cancel order
+    const { error: updateError } = await supabaseAdmin
+      .from("orders")
+      .update({ status: "cancelled" })
+      .eq("id", id);
+
+    if (updateError) throw new AppError(updateError.message, 500);
+
+    // If order was confirmed, we need to release ticket capacity and cancel tickets
+    if (order.status === "confirmed") {
+      // Decrement tickets_sold
+      for (const line of order.tickets) {
+        await supabaseAdmin.rpc("increment_tickets_sold", {
+          p_ticket_type_id: line.ticket_type_id,
+          p_quantity: -line.quantity,
+        });
+      }
+
+      // Cancel associated tickets
+      await supabaseAdmin
+        .from("tickets")
+        .update({ status: "cancelled" })
+        .eq("order_id", id);
+    }
+
+    res.json({ success: true, message: "Order cancelled successfully" });
+  })
+);
+
 export default router;

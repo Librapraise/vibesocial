@@ -1,30 +1,50 @@
 import { Router, Request, Response } from "express";
 import { supabaseAdmin } from "../config/supabase";
-import { requireAuth, optionalAuth } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
+import { validate } from "../middleware/validate";
+import { z } from "zod";
 
 const router = Router();
+
+// ─── Validation Schemas ───────────────────────────────────────────────────────
+
+const createUserActivitySchema = z.object({
+  event_id: z.string().uuid(),
+  action_type: z.string().min(1),
+  venue_type: z.enum(["club", "lounge", "bar", "rooftop", "house_party", "pop_up", "concert", "other"]).optional().nullable(),
+  vibe_tags: z.array(z.string()).optional(),
+  check_in_method: z.string().optional().nullable(),
+  check_in_verified: z.boolean().optional(),
+});
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
 
 /**
  * GET /api/user-activities
  * List/filter user activities (check-ins)
+ * Only authenticated users can view, and users can only view their own activities (or admin views all)
  */
 router.get(
   "/",
-  optionalAuth,
+  requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const { created_by_id, event_id, action_type } = req.query;
 
-    let query = supabaseAdmin.from("user_activities").select("*");
+    const targetUserId = (created_by_id as string) || req.user!.id;
 
-    if (created_by_id) {
-      query = query.eq("user_id", created_by_id);
+    // Security check: restrict non-admins to querying only their own activities
+    if (targetUserId !== req.user!.id && req.user!.role !== "admin") {
+      throw new AppError("Access denied: You can only query your own activities", 403);
     }
+
+    let query = supabaseAdmin.from("user_activities").select("*").eq("user_id", targetUserId);
+
     if (event_id) {
-      query = query.eq("event_id", event_id);
+      query = query.eq("event_id", event_id as string);
     }
     if (action_type) {
-      query = query.eq("action_type", action_type);
+      query = query.eq("action_type", action_type as string);
     }
 
     const { data, error } = await query.order("created_at", { ascending: false });
@@ -49,12 +69,9 @@ router.get(
 router.post(
   "/",
   requireAuth,
+  validate(createUserActivitySchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { event_id, action_type, venue_type, vibe_tags, check_in_method, check_in_verified } = req.body;
-
-    if (!event_id || !action_type) {
-      throw new AppError("event_id and action_type are required", 400);
-    }
 
     const { data, error } = await supabaseAdmin
       .from("user_activities")
@@ -77,6 +94,39 @@ router.post(
       created_by_id: data.user_id,
       created_date: data.created_at,
     });
+  })
+);
+
+/**
+ * DELETE /api/user-activities/:id
+ * Delete an activity log entry (owner only)
+ */
+router.delete(
+  "/:id",
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    // Check ownership
+    const { data: existing } = await supabaseAdmin
+      .from("user_activities")
+      .select("user_id")
+      .eq("id", id)
+      .single();
+
+    if (!existing) throw new AppError("Activity not found", 404);
+    if (existing.user_id !== req.user!.id && req.user!.role !== "admin") {
+      throw new AppError("Access denied: You can only delete your own activity logs", 403);
+    }
+
+    const { error } = await supabaseAdmin
+      .from("user_activities")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw new AppError(error.message, 500);
+
+    res.json({ success: true, message: "Activity deleted successfully" });
   })
 );
 

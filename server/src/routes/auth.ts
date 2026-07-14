@@ -57,6 +57,10 @@ const updateProfileSchema = z.object({
     .optional(),
 });
 
+const changePasswordSchema = z.object({
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 /**
@@ -230,6 +234,28 @@ router.post(
       access_token: data.session.access_token,
       refresh_token: data.session.refresh_token,
     });
+  })
+);
+
+/**
+ * POST /api/auth/change-password
+ * Change password of authenticated user
+ */
+router.post(
+  "/change-password",
+  requireAuth,
+  validate(changePasswordSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { password } = req.body;
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password,
+    });
+
+    if (error) throw new AppError(error.message, 400);
+
+    res.json({ message: "Password updated successfully" });
   })
 );
 

@@ -227,7 +227,11 @@ export const base44Mock = {
     logout: () => console.log('Logging out (mocked)'),
     setToken: () => {},
     isAuthenticated: async () => true,
-    loginViaEmailPassword: async () => ({ access_token: "mock-token", user: MOCK_USER })
+    loginViaEmailPassword: async () => ({ access_token: "mock-token", user: MOCK_USER }),
+    changePassword: async (password: string) => {
+      console.log("Mock changePassword called");
+      return { message: "Password updated successfully" };
+    }
   },
   entities: new Proxy({}, entityMockHandler) as any,
   appLogs: {
@@ -298,6 +302,22 @@ export const base44Mock = {
         const uniqueIds = Array.from(new Set(ids));
         return { event_ids: uniqueIds.slice(0, 4) };
       }
+    }
+  },
+  orders: {
+    cancel: async (id: string) => {
+      console.log("Mock cancel order for:", id);
+      const order = entityStore["Order"].find((o: any) => o.id === id);
+      if (order) order.status = "cancelled";
+      return { success: true };
+    }
+  },
+  reviews: {
+    update: async (id: string, data: any) => {
+      console.log("Mock update review for:", id, data);
+      const review = entityStore["Review"].find((r: any) => r.id === id);
+      if (review) Object.assign(review, data);
+      return review || { id, ...data };
     }
   }
 };

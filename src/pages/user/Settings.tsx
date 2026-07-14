@@ -95,7 +95,7 @@ type TabId = "profile" | "vibes" | "privacy" | "notifications";
 
 export default function Settings() {
   const { toast } = useToast();
-  const { user: authUser, checkAppState } = useAuth();
+  const { user: authUser, checkAppState, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>("profile");
   const [user, setUser] = useState<CurrentUser>(authUser);
   const [loading, setLoading] = useState<boolean>(!authUser);
@@ -209,7 +209,7 @@ export default function Settings() {
 
     try {
       await base44.auth.updateMe({ vibe_preferences: updated });
-      await checkAppState();
+      updateUser({ vibe_preferences: updated });
       toast({
         title: "Preferences Updated",
         description: `Your preference for "${tag}" has been updated.`,
@@ -259,8 +259,8 @@ export default function Settings() {
       }
 
       await base44.auth.updateMe(payload);
+      updateUser(payload);
       setUser((prev: any) => ({ ...prev, ...payload }));
-      await checkAppState();
       toast({
         title: "Settings Saved",
         description: "Your settings have been updated successfully.",

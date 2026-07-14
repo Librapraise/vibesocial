@@ -93,7 +93,7 @@ const AuthenticatedApp = () => {
 
   // Admin routing constraints
   const isAdmin = user?.role === "admin";
-  if (isAuthenticated && isAdmin && location.pathname !== "/AdminDashboard") {
+  if (isAuthenticated && isAdmin && (location.pathname === "/" || location.pathname === "/Home")) {
     return <Navigate to="/AdminDashboard" replace />;
   }
   if (location.pathname === "/AdminDashboard" && !isAdmin && !isDemoMode) {

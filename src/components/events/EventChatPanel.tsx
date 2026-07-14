@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, MessageCircle } from "lucide-react";
+import { Send, MessageCircle, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
@@ -17,7 +17,7 @@ type ChatMessage = {
   created_date?: string;
 };
 
-type CurrentUser = { email: string; full_name?: string } | null;
+type CurrentUser = { email: string; full_name?: string; subscription_tier?: string } | null;
 
 type EventChatPanelProps = {
   eventId: string;
@@ -78,6 +78,7 @@ export default function EventChatPanel({ eventId }: EventChatPanelProps) {
       event_id: eventId,
       sender_name: senderName,
       sender_email: senderEmail,
+      sender_tier: (currentUser as any)?.subscription_tier || "free",
       message: message.trim(),
     });
     setMessage("");
@@ -118,7 +119,12 @@ export default function EventChatPanel({ eventId }: EventChatPanelProps) {
                 )}
                 <div className={cn("max-w-[75%] flex flex-col gap-0.5", isMe ? "items-end" : "items-start")}>
                   {!isMe && (
-                    <span className="text-[10px] text-zinc-500 px-1">{msg.sender_name}</span>
+                    <span className="text-[10px] text-zinc-500 px-1 flex items-center gap-1">
+                      {msg.sender_name}
+                      {(msg as any).sender_tier === "vip" && (
+                        <Crown className="w-3 h-3 text-orange-400 inline fill-orange-400/25" />
+                      )}
+                    </span>
                   )}
                   <div className={cn(
                     "rounded-2xl px-3 py-2 text-sm leading-relaxed",
@@ -131,8 +137,13 @@ export default function EventChatPanel({ eventId }: EventChatPanelProps) {
                   </span>
                 </div>
                 {isMe && (
-                  <div className="w-7 h-7 rounded-full bg-orange-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-full bg-orange-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 relative">
                     {senderName[0]?.toUpperCase()}
+                    {(currentUser as any)?.subscription_tier === "vip" && (
+                      <div className="absolute -top-1 -right-1 bg-zinc-950 rounded-full p-0.5 border border-zinc-800">
+                        <Crown className="w-2.5 h-2.5 text-orange-400 fill-orange-400/25" />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -165,14 +176,26 @@ export default function EventChatPanel({ eventId }: EventChatPanelProps) {
           <Input
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder={guestName && !currentUser ? `Chatting as ${guestName}…` : "Say something..."}
-            className="bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500 flex-1"
+            placeholder={
+              currentUser
+                ? (currentUser.subscription_tier === "plus" || currentUser.subscription_tier === "vip")
+                  ? "Say something..."
+                  : "Upgrade to Plus or VIP to participate in chat..."
+                : "Sign In & Upgrade to participate in chat..."
+            }
+            className="bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500 flex-1 disabled:opacity-50"
+            disabled={!currentUser || (currentUser.subscription_tier !== "plus" && currentUser.subscription_tier !== "vip")}
             maxLength={500}
           />
           <Button
             type="submit"
             size="icon"
-            disabled={!message.trim() || sending}
+            disabled={
+              !message.trim() ||
+              sending ||
+              !currentUser ||
+              (currentUser.subscription_tier !== "plus" && currentUser.subscription_tier !== "vip")
+            }
             className="bg-orange-500 hover:bg-orange-600 text-white flex-shrink-0"
           >
             <Send className="w-4 h-4" />

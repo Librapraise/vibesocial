@@ -57,6 +57,19 @@ export default function SaveEventButton({ event, className, size = "default" }: 
         toast.success("Removed from your calendar");
       } else {
         const user = await base44.auth.me();
+
+        // Enforce 10 event limit for Free tier
+        if (!user.subscription_tier || user.subscription_tier === "free") {
+          const currentSaves = await base44.entities.SavedEvent.filter({
+            created_by: user.email,
+          });
+          if (currentSaves.length >= 10) {
+            toast.error("Free plan limit reached: You can only save up to 10 events. Upgrade to Plus or VIP for unlimited!");
+            setLoading(false);
+            return;
+          }
+        }
+
         const result = await base44.entities.SavedEvent.create({
           event_id: event.id,
           event_title: event.title,

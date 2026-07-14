@@ -248,6 +248,18 @@ export default function AdminDashboard() {
     },
   });
 
+  const updateSubscriptionMutation = useMutation({
+    mutationFn: ({ userId, subscription_tier }: { userId: string; subscription_tier: string }) =>
+      (base44 as any).admin.updateUserSubscription(userId, subscription_tier),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      toast({ title: "✅ Subscription Updated", description: "User subscription tier changed successfully." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to update subscription.", variant: "destructive" });
+    },
+  });
+
   const deleteUserMutation = useMutation({
     mutationFn: (userId: string) => (base44 as any).admin.deleteUser(userId),
     onSuccess: () => {
@@ -602,15 +614,16 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                         <th className="px-5 py-3.5 text-left">User</th>
                         <th className="px-5 py-3.5 text-left">Email</th>
                         <th className="px-5 py-3.5 text-left">Role</th>
+                        <th className="px-5 py-3.5 text-left">Subscription</th>
                         <th className="px-5 py-3.5 text-left">Joined</th>
                         <th className="px-5 py-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/40">
                       {loadingUsers ? (
-                        <tr><td colSpan={5}><TableSkeleton rows={6} cols={5} /></td></tr>
+                        <tr><td colSpan={6}><TableSkeleton rows={6} cols={6} /></td></tr>
                       ) : filteredUsers.length === 0 ? (
-                        <tr><td colSpan={5}><EmptyState message="No users match your search." /></td></tr>
+                        <tr><td colSpan={6}><EmptyState message="No users match your search." /></td></tr>
                       ) : (
                         filteredUsers.map((u: any) => (
                           <tr key={u.id} className="hover:bg-zinc-800/20 transition">
@@ -641,6 +654,20 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                                 {u.role}
                               </Badge>
                             </td>
+                            <td className="px-5 py-3.5">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  u.subscription_tier === "vip"
+                                    ? "border-violet-500/30 bg-violet-500/5 text-violet-400 text-[10px] font-bold uppercase tracking-wider"
+                                    : u.subscription_tier === "plus"
+                                    ? "border-blue-500/30 bg-blue-500/5 text-blue-400 text-[10px] font-bold uppercase tracking-wider"
+                                    : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
+                                }
+                              >
+                                {u.subscription_tier || "standard"}
+                              </Badge>
+                            </td>
                             <td className="px-5 py-3.5 text-zinc-500 text-xs">
                               {u.created_at ? new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
                             </td>
@@ -664,17 +691,39 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                                     className="text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/40 h-7 px-2 rounded-lg"
                                   >Attendee</Button>
                                 )}
-                                {u.id !== user?.id && (
+                                <div className="w-full h-px bg-zinc-800/40 my-1" />
+                                {u.subscription_tier !== "vip" && (
                                   <Button variant="ghost" size="sm"
-                                    onClick={() => {
-                                      if (window.confirm(`Delete ${u.name}? This is irreversible.`)) {
-                                        deleteUserMutation.mutate(u.id);
-                                      }
-                                    }}
-                                    className="text-zinc-600 hover:text-red-400 hover:bg-red-500/10 h-7 px-2 rounded-lg"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </Button>
+                                    onClick={() => updateSubscriptionMutation.mutate({ userId: u.id, subscription_tier: "vip" })}
+                                    className="text-[11px] text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 h-7 px-2 rounded-lg"
+                                  >VIP</Button>
+                                )}
+                                {u.subscription_tier !== "plus" && (
+                                  <Button variant="ghost" size="sm"
+                                    onClick={() => updateSubscriptionMutation.mutate({ userId: u.id, subscription_tier: "plus" })}
+                                    className="text-[11px] text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7 px-2 rounded-lg"
+                                  >Plus</Button>
+                                )}
+                                {u.subscription_tier !== "standard" && (
+                                  <Button variant="ghost" size="sm"
+                                    onClick={() => updateSubscriptionMutation.mutate({ userId: u.id, subscription_tier: "standard" })}
+                                    className="text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/40 h-7 px-2 rounded-lg"
+                                  >Standard</Button>
+                                )}
+                                {u.id !== user?.id && (
+                                  <>
+                                    <div className="w-full h-px bg-zinc-800/40 my-1" />
+                                    <Button variant="ghost" size="sm"
+                                      onClick={() => {
+                                        if (window.confirm(`Delete ${u.name}? This is irreversible.`)) {
+                                          deleteUserMutation.mutate(u.id);
+                                        }
+                                      }}
+                                      className="text-zinc-600 hover:text-red-400 hover:bg-red-500/10 h-7 px-2 rounded-lg"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </>
                                 )}
                               </div>
                             </td>

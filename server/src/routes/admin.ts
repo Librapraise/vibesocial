@@ -16,6 +16,10 @@ const updateRoleSchema = z.object({
   role: z.enum(["attendee", "organizer", "admin"]),
 });
 
+const updateSubscriptionSchema = z.object({
+  subscription_tier: z.enum(["standard", "plus", "vip"]),
+});
+
 const adminUpdateEventSchema = z.object({
   title: z.string().min(2).optional(),
   venue_name: z.string().min(2).optional(),
@@ -160,6 +164,31 @@ router.patch(
     const { data, error } = await supabaseAdmin
       .from("users")
       .update({ role, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw new AppError(error.message, 400);
+    if (!data) throw new AppError("User not found", 404);
+
+    res.json(data);
+  })
+);
+
+/**
+ * PATCH /api/admin/users/:id/subscription
+ * Change a user's subscription tier
+ */
+router.patch(
+  "/users/:id/subscription",
+  validate(updateSubscriptionSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { subscription_tier } = req.body;
+
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .update({ subscription_tier, updated_at: new Date().toISOString() })
       .eq("id", id)
       .select()
       .single();

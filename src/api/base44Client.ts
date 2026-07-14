@@ -255,6 +255,11 @@ export const base44Mock = {
       if (u) u.role = role;
       return u;
     },
+    updateUserSubscription: async (userId: string, subscriptionTier: string) => {
+      const u = entityStore["User"].find((x: any) => x.id === userId);
+      if (u) u.subscription_tier = subscriptionTier;
+      return u;
+    },
     deleteUser: async (userId: string) => {
       const idx = entityStore["User"].findIndex((x: any) => x.id === userId);
       if (idx !== -1) entityStore["User"].splice(idx, 1);

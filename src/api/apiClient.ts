@@ -236,6 +236,10 @@ export const base44Live = {
       const response = await axiosInstance.patch(`/admin/users/${userId}/role`, { role });
       return response.data;
     },
+    updateUserSubscription: async (userId: string, subscriptionTier: string) => {
+      const response = await axiosInstance.patch(`/admin/users/${userId}/subscription`, { subscription_tier: subscriptionTier });
+      return response.data;
+    },
     deleteUser: async (userId: string) => {
       const response = await axiosInstance.delete(`/admin/users/${userId}`);
       return response.data;

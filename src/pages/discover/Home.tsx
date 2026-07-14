@@ -15,6 +15,7 @@ import ForYouSection from "@/components/recommendations/ForYouSection";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import SendNotificationDialog from "@/components/notifications/SendNotificationDialog";
 import useEventAlerts from "@/hooks/useEventAlerts";
+import { useAuth } from "@/lib/AuthContext";
 
 type EventItem = {
   id: string;
@@ -97,6 +98,7 @@ const US_STATES = [
 
 export default function Home() {
   useEventAlerts();
+  const { user } = useAuth();
   const [search, setSearch] = useState<string>("");
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [stateFilter, setStateFilter] = useState<string>("all");
@@ -286,6 +288,21 @@ export default function Home() {
         {viewMode === "list" && (
           <div>
             <ForYouSection />
+
+            {(!user || (user.subscription_tier !== "plus" && user.subscription_tier !== "vip")) && (
+              <div className="mt-6 bg-gradient-to-r from-purple-900/40 via-pink-900/35 to-orange-900/35 border border-purple-500/20 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="space-y-1 text-center sm:text-left">
+                  <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/30 font-black text-[9px] uppercase tracking-wider px-2.5">Sponsored</Badge>
+                  <h4 className="text-white font-bold text-sm">Experience VibeSocial Ad-Free</h4>
+                  <p className="text-zinc-450 text-xs leading-relaxed">Upgrade to Plus or VIP for ad-free browsing, priority chat access, and skip-the-line VIP privileges.</p>
+                </div>
+                <Link to={createPageUrl("Subscription")} className="shrink-0 w-full sm:w-auto">
+                  <Button className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white font-bold text-xs h-9 rounded-xl px-4">
+                    Upgrade Now
+                  </Button>
+                </Link>
+              </div>
+            )}
 
             {isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">

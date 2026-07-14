@@ -49,7 +49,7 @@ const TIERS: Tier[] = [
       "Save up to 10 events",
       "Basic check-in verification",
     ],
-    cta: "Current Plan",
+    cta: "Downgrade to Free",
   },
   {
     key: "plus",
@@ -170,7 +170,20 @@ export default function SubscriptionPlans() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {TIERS.map((tier) => {
+            const TIER_ORDER = ["free", "plus", "vip"];
             const isCurrent = currentPlan === tier.key;
+            const currentIndex = TIER_ORDER.indexOf(currentPlan);
+            const tierIndex = TIER_ORDER.indexOf(tier.key);
+            
+            let ctaText = tier.cta;
+            if (currentIndex !== -1 && tierIndex !== -1) {
+              if (tierIndex < currentIndex) {
+                ctaText = `Downgrade to ${tier.name}`;
+              } else if (tierIndex > currentIndex) {
+                ctaText = `Upgrade to ${tier.name}`;
+              }
+            }
+
             const TIcon = tier.icon;
             return (
               <div
@@ -232,7 +245,7 @@ export default function SubscriptionPlans() {
                       <Check className="w-4 h-4" /> Current Plan
                     </>
                   ) : user ? (
-                    tier.cta
+                    ctaText
                   ) : (
                     "Sign In to Subscribe"
                   )}

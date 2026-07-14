@@ -463,18 +463,19 @@ export default function Settings() {
                   <h3 className="text-base font-bold text-white">Password & Accounts</h3>
                 </div>
 
-                <div className="flex items-center justify-between flex-wrap gap-4 bg-zinc-950/40 border border-zinc-800 rounded-xl p-4">
+                 <div className="flex items-center justify-between flex-wrap gap-4 bg-zinc-950/40 border border-zinc-800 rounded-xl p-4">
                   <div>
-                    <p className="text-xs font-bold text-zinc-200">Reset Password</p>
-                    <p className="text-[10px] text-zinc-500 mt-0.5">Password updates are handled securely via your registered email.</p>
+                    <p className="text-xs font-bold text-zinc-200">Manage Password & Security</p>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">Change your password and configure account privacy settings.</p>
                   </div>
-                  <Button
-                    onClick={() => base44.auth.redirectToLogin("/Settings")}
-                    variant="outline"
-                    className="border-zinc-800 text-zinc-300 hover:bg-zinc-900 rounded-xl text-xs"
-                  >
-                    <Lock className="w-3.5 h-3.5 mr-1.5" /> Reset
-                  </Button>
+                  <Link to={createPageUrl("AccountSecurity")}>
+                    <Button
+                      variant="outline"
+                      className="border-zinc-800 text-zinc-300 hover:bg-zinc-900 rounded-xl text-xs"
+                    >
+                      <Lock className="w-3.5 h-3.5 mr-1.5" /> Manage
+                    </Button>
+                  </Link>
                 </div>
 
                 <div className="space-y-3">

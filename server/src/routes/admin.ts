@@ -17,7 +17,7 @@ const updateRoleSchema = z.object({
 });
 
 const updateSubscriptionSchema = z.object({
-  subscription_tier: z.enum(["standard", "plus", "vip"]),
+  subscription_tier: z.enum(["free", "plus", "vip"]),
 });
 
 const adminUpdateEventSchema = z.object({

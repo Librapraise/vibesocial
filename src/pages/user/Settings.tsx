@@ -451,7 +451,7 @@ export default function Settings() {
                     <p className="text-xs text-zinc-500 mt-0.5">Unlock early bookings and exclusive vibe updates.</p>
                   </div>
                   <Badge className="bg-gradient-to-r from-orange-500 to-pink-500 text-white font-black px-3 py-1 rounded-lg text-[10px] uppercase tracking-wide">
-                    {user.subscription_tier || "Standard"}
+                    {user.subscription_tier === "vip" ? "VIP" : user.subscription_tier === "plus" ? "Plus" : "Free"}
                   </Badge>
                 </div>
               </div>

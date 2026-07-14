@@ -323,7 +323,7 @@ export default function Profile() {
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 <h1 className="text-2xl sm:text-3xl font-black text-white">{displayName}</h1>
                 <Badge className="bg-gradient-to-r from-orange-500 to-pink-500 text-white font-bold px-2 py-0.5 text-[10px] uppercase tracking-wider">
-                  {user.subscription_tier || "Standard"}
+                  {user.subscription_tier === "vip" ? "VIP" : user.subscription_tier === "plus" ? "Plus" : "Free"}
                 </Badge>
               </div>
               <p className="text-zinc-500 text-sm">{user.email}</p>

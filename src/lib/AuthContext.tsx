@@ -83,7 +83,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 social_links: { instagram: '', spotify: '' },
                 vibe_preferences: [],
                 privacy_settings: { is_private: false, show_on_leaderboard: true },
-                subscription_tier: 'standard',
+                subscription_tier: 'free',
                 notification_settings: {
                     push_enabled: true,
                     event_start_alerts: true,

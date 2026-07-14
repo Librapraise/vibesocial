@@ -824,11 +824,11 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                           </div>
                           <div className="grid grid-cols-3 gap-2">
                             {([
-                              { value: "standard", label: "Free", desc: "Basic features only", icon: "🔵", color: "zinc" },
+                              { value: "free", label: "Free", desc: "Basic features only", icon: "🔵", color: "zinc" },
                               { value: "plus", label: "Plus", desc: "Chat + premium perks", icon: "⚡", color: "blue" },
                               { value: "vip", label: "VIP", desc: "All features + priority", icon: "👑", color: "violet" },
                             ] as const).map((tier) => {
-                              const isActive = (selectedUser.subscription_tier || "standard") === tier.value;
+                              const isActive = (selectedUser.subscription_tier || "free") === tier.value;
                               const colorCls = {
                                 zinc: isActive ? "border-zinc-500/50 bg-zinc-700/50 text-zinc-200 shadow-md" : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 hover:border-zinc-500/40 hover:bg-zinc-700/40 hover:text-zinc-200",
                                 blue: isActive ? "border-blue-500/50 bg-blue-500/15 text-blue-300 shadow-blue-500/10 shadow-md" : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 hover:border-blue-500/30 hover:bg-blue-500/5 hover:text-blue-400",

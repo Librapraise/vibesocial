@@ -9,7 +9,7 @@ Here are three realistic, premium event ideas you can copy and paste into the **
 *   **Event Name:** `Retro Future: Neon Bass Drop`
 *   **Venue Name:** `Subterranean Room 404`
 *   **Venue Type:** `Club`
-*   **State / DC:** `NY` (or select New York)
+*   **State / DC:** `New York`
 *   **Address:** `404 Underground Ave, Brooklyn, NY 11211`
 *   **Description:**
     ```text
@@ -23,6 +23,21 @@ Here are three realistic, premium event ideas you can copy and paste into the **
     *   `Cyberpunk`
     *   `Cocktails`
 
+### Suggested Ticket Types:
+
+*   **Ticket Type 1: General Admission**
+    *   **Name:** `General Admission`
+    *   **Description:** `Standard entry to the main dance floors.`
+    *   **Price ($):** `20`
+    *   **Capacity:** `150`
+    *   **Max per order:** `6`
+*   **Ticket Type 2: VIP Pass**
+    *   **Name:** `VIP Backstage`
+    *   **Description:** `Express queue skip and backstage/VIP lounge access.`
+    *   **Price ($):** `60`
+    *   **Capacity:** `30`
+    *   **Max per order:** `2`
+
 ---
 
 ## Option 2: Golden Hour Sunset Beats (Sophisticated Rooftop Theme)
@@ -30,7 +45,7 @@ Here are three realistic, premium event ideas you can copy and paste into the **
 *   **Event Name:** `Skyline Sunset & Deep Beats`
 *   **Venue Name:** `The Solarium Loft`
 *   **Venue Type:** `Rooftop`
-*   **State / DC:** `CA` (or select California)
+*   **State / DC:** `California`
 *   **Address:** `1200 Pine Street, 14th Floor, San Francisco, CA 94109`
 *   **Description:**
     ```text
@@ -44,6 +59,21 @@ Here are three realistic, premium event ideas you can copy and paste into the **
     *   `House`
     *   `Speakeasies`
 
+### Suggested Ticket Types:
+
+*   **Ticket Type 1: Early Bird**
+    *   **Name:** `Early Bird Sunset Entry`
+    *   **Description:** `Discounted admission before 6:30 PM.`
+    *   **Price ($):** `15`
+    *   **Capacity:** `40`
+    *   **Max per order:** `4`
+*   **Ticket Type 2: Standard**
+    *   **Name:** `Rooftop Entry`
+    *   **Description:** `Guaranteed entry at any hour of the night.`
+    *   **Price ($):** `30`
+    *   **Capacity:** `80`
+    *   **Max per order:** `6`
+
 ---
 
 ## Option 3: Acoustic Wine & Jazz Session (Intimate Lounge Theme)
@@ -51,7 +81,7 @@ Here are three realistic, premium event ideas you can copy and paste into the **
 *   **Event Name:** `Mahogany & Melodies: Acoustic Jazz Night`
 *   **Venue Name:** `The Mahogany Parlor`
 *   **Venue Type:** `Lounge`
-*   **State / DC:** `IL` (or select Illinois)
+*   **State / DC:** `Illinois`
 *   **Address:** `88 Broadway St, Chicago, IL 60611`
 *   **Description:**
     ```text
@@ -64,3 +94,12 @@ Here are three realistic, premium event ideas you can copy and paste into the **
     *   `Acoustic`
     *   `Speakeasies`
     *   `Craft Beer`
+
+### Suggested Ticket Types:
+
+*   **Ticket Type 1: Table Reservation**
+    *   **Name:** `Premium Velvet Table`
+    *   **Description:** `Includes general entry and reserved velvet booth seating for up to 4.`
+    *   **Price ($):** `45`
+    *   **Capacity:** `12`
+    *   **Max per order:** `1`

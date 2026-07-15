@@ -19,6 +19,7 @@ import uploadRoutes from "./routes/upload";
 import aiRoutes from "./routes/ai";
 import userActivitiesRoutes from "./routes/userActivities";
 import adminRoutes from "./routes/admin";
+import notificationRoutes from "./routes/notifications";
 
 const app = express();
 const PORT = env.PORT || 5000;
@@ -76,6 +77,7 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/user-activities", userActivitiesRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 

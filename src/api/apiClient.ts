@@ -92,6 +92,7 @@ axiosInstance.interceptors.response.use(
 const ENDPOINT_MAP: Record<string, string> = {
   TicketType: "/ticket-types",
   StatusUpdate: "/status-updates",
+  EventStatus: "/status-updates",
   SavedEvent: "/saved-events",
   UserActivity: "/user-activities",
 };

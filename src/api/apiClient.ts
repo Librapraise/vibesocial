@@ -217,8 +217,8 @@ export const base44Live = {
         });
         return response.data;
       },
-      InvokeLLM: async ({ prompt }: { prompt: string }) => {
-        const response = await axiosInstance.post("/ai/invoke", { prompt });
+      InvokeLLM: async ({ prompt, response_json_schema }: { prompt: string; response_json_schema?: any }) => {
+        const response = await axiosInstance.post("/ai/invoke", { prompt, response_json_schema });
         return response.data;
       }
     }

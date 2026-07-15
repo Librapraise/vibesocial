@@ -39,9 +39,12 @@ export default function ForYouSection() {
     queryFn: () => base44.entities.Event.filter({ is_active: true }, '-current_vibe_score'),
   });
 
+  const serializedActivities = JSON.stringify(userActivities);
+  const serializedEvents = JSON.stringify(allEvents);
+
   useEffect(() => {
     generateRecommendations();
-  }, [userActivities, allEvents]);
+  }, [serializedActivities, serializedEvents]);
 
   const generateRecommendations = async () => {
     if (!allEvents.length) {

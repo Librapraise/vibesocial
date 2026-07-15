@@ -24,6 +24,7 @@ export const requireAuth = async (
   const { data: { user: supabaseUser }, error } = await supabaseAdmin.auth.getUser(token);
 
   if (error || !supabaseUser) {
+    console.error("Auth Verification Failed:", { error, userFound: !!supabaseUser });
     res.status(401).json({ error: "Unauthorized", message: "Invalid or expired token" });
     return;
   }

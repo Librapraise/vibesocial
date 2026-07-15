@@ -135,7 +135,34 @@ router.post(
     }
 
     // 4. Paid orders — create a Stripe PaymentIntent
-    const paymentIntent = await stripe.paymentIntents.create({
+    // Determine if the event organizer has an active Stripe Connect account
+    const { data: event } = await supabaseAdmin
+      .from("events")
+      .select("created_by")
+      .eq("id", event_id)
+      .single();
+
+    const { data: organizer } = event?.created_by
+      ? await supabaseAdmin
+          .from("users")
+          .select("stripe_connect_id, stripe_connect_status")
+          .eq("id", event.created_by)
+          .single()
+      : { data: null };
+
+    const organizerConnectId =
+      organizer?.stripe_connect_status === "active" && organizer?.stripe_connect_id
+        ? (organizer.stripe_connect_id as string)
+        : null;
+
+    // Calculate platform fee for Connect charges
+    const platformFeePercent = parseFloat(env.PLATFORM_FEE_PERCENT || "10");
+    const applicationFeeAmount = organizerConnectId
+      ? Math.round(totalAmount * 100 * (platformFeePercent / 100))
+      : 0;
+
+    // Build PaymentIntent params
+    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
       amount: Math.round(totalAmount * 100), // cents
       currency: "usd",
       metadata: {
@@ -143,10 +170,19 @@ router.post(
         buyer_id: req.user!.id,
         attendee_email,
         confirmation_code: confirmationCode,
+        payout_mode: organizerConnectId ? "connect" : "manual",
       },
       receipt_email: attendee_email,
       description: `VibeSocial tickets — ${confirmationCode}`,
-    });
+    };
+
+    // Attach Connect destination + platform fee if organizer is connected
+    if (organizerConnectId) {
+      paymentIntentParams.application_fee_amount = applicationFeeAmount;
+      paymentIntentParams.transfer_data = { destination: organizerConnectId };
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
     // 5. Create order in "pending_payment" state
     const orderData = {

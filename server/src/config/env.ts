@@ -15,6 +15,7 @@ const envSchema = z.object({
   // Stripe
   STRIPE_SECRET_KEY: z.string().min(1, "STRIPE_SECRET_KEY is required"),
   STRIPE_WEBHOOK_SECRET: z.string().min(1, "STRIPE_WEBHOOK_SECRET is required"),
+  PLATFORM_FEE_PERCENT: z.string().default("10"), // % fee kept by platform on Connect charges
 
   // OpenAI
   OPENAI_API_KEY: z.string().optional(),
@@ -53,6 +54,7 @@ export const env = parsed.success
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
       STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "",
       STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || "",
+      PLATFORM_FEE_PERCENT: process.env.PLATFORM_FEE_PERCENT || "10",
       OPENAI_API_KEY: process.env.OPENAI_API_KEY,
       RESEND_API_KEY: process.env.RESEND_API_KEY,
       EMAIL_FROM: process.env.EMAIL_FROM || "noreply@vibesocial.app",

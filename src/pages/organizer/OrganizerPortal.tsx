@@ -19,6 +19,7 @@ import { createPageUrl, venueTypeIcons } from "@/utils";
 import { useAuth } from "@/lib/AuthContext";
 import TicketTypeManager from "@/components/tickets/TicketTypeManager";
 import StatusUpdateForm from "@/components/events/StatusUpdateForm";
+import StripeConnectCard from "@/components/organizer/StripeConnectCard";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -302,6 +303,15 @@ export default function OrganizerPortal() {
             </section>
           </>
         )}
+
+        {/* Stripe payouts — always visible to organizers */}
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <DollarSign className="w-5 h-5 text-orange-400" />
+            <h3 className="text-lg font-bold text-white">Payout Settings</h3>
+          </div>
+          <StripeConnectCard />
+        </section>
       </div>
     </div>
   );

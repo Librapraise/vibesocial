@@ -46,6 +46,9 @@ export interface UserRow {
   avatar_url?: string;
   role: UserRole;
   notification_settings: Record<string, boolean>;
+  stripe_connect_id?: string;
+  stripe_connect_status?: 'not_connected' | 'pending' | 'active';
+  stripe_connect_details_submitted?: boolean;
   created_at: string;
 }
 

@@ -294,4 +294,26 @@ export const base44Live = {
       return response.data;
     }
   },
+  stripeConnect: {
+    /** Initiate Stripe Express onboarding. Returns { url: string } to redirect to. */
+    onboard: async (return_url: string, refresh_url: string) => {
+      const response = await axiosInstance.post("/stripe-connect/onboard", { return_url, refresh_url });
+      return response.data as { url: string };
+    },
+    /** Refresh Connect account status from Stripe and update DB. */
+    getStatus: async () => {
+      const response = await axiosInstance.get("/stripe-connect/status");
+      return response.data as {
+        status: "not_connected" | "pending" | "active";
+        details_submitted: boolean;
+        charges_enabled: boolean;
+        payouts_enabled: boolean;
+      };
+    },
+    /** Get a Stripe Dashboard login link for connected organizers. */
+    getDashboardLink: async () => {
+      const response = await axiosInstance.get("/stripe-connect/dashboard-link");
+      return response.data as { url: string };
+    },
+  },
 };

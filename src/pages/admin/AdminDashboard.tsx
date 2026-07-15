@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -64,7 +65,8 @@ type SidebarSection =
   | "reviews"
   | "vibes"
   | "announcements"
-  | "ai";
+  | "ai"
+  | "venue-applications";
 
 interface NavItem {
   id: SidebarSection;
@@ -81,6 +83,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "orders", label: "Orders", icon: ShoppingCart, color: "text-amber-400", accent: "from-amber-500 to-yellow-500" },
   { id: "reviews", label: "Reviews", icon: Star, color: "text-pink-400", accent: "from-pink-500 to-rose-500" },
   { id: "vibes", label: "Vibe Updates", icon: Radio, color: "text-purple-400", accent: "from-purple-500 to-violet-500" },
+  { id: "venue-applications", label: "Venue Apps", icon: Building, color: "text-indigo-400", accent: "from-indigo-500 to-purple-500" },
   { id: "announcements", label: "Announcements", icon: Megaphone, color: "text-sky-400", accent: "from-sky-500 to-indigo-500" },
   { id: "ai", label: "AI Audit", icon: Sparkles, color: "text-violet-400", accent: "from-violet-500 to-fuchsia-500" },
 ];
@@ -194,6 +197,10 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [deletingUser, setDectingUser] = useState(false);
 
+  // Rejection modal state
+  const [rejectingAppId, setRejectingAppId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+
   // Search states
   const [userSearch, setUserSearch] = useState("");
   const [eventSearch, setEventSearch] = useState("");
@@ -209,41 +216,56 @@ export default function AdminDashboard() {
 
   // ─── Data Queries ───────────────────────────────────────────────────────────
 
-  const { data: stats, isLoading: loadingStats, refetch: refetchStats } = useQuery({
+  const { data: stats, isLoading: loadingStats, refetch: refetchStats, isFetching: isFetchingStats } = useQuery({
     queryKey: ["admin", "stats"],
     queryFn: () => (base44 as any).admin.getStats(),
     refetchInterval: 60_000,
   });
 
-  const { data: users = [], isLoading: loadingUsers } = useQuery({
+  const { data: users = [], isLoading: loadingUsers, isFetching: isFetchingUsers } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: () => (base44 as any).admin.getUsers(),
     enabled: activeSection === "users",
   });
 
-  const { data: events = [], isLoading: loadingEvents } = useQuery({
+  const { data: events = [], isLoading: loadingEvents, isFetching: isFetchingEvents } = useQuery({
     queryKey: ["admin", "events"],
     queryFn: () => (base44 as any).admin.getEvents(),
     enabled: activeSection === "events",
   });
 
-  const { data: orders = [], isLoading: loadingOrders } = useQuery({
+  const { data: orders = [], isLoading: loadingOrders, isFetching: isFetchingOrders } = useQuery({
     queryKey: ["admin", "orders"],
     queryFn: () => (base44 as any).admin.getOrders(),
     enabled: activeSection === "orders",
   });
 
-  const { data: reviews = [], isLoading: loadingReviews } = useQuery({
+  const { data: reviews = [], isLoading: loadingReviews, isFetching: isFetchingReviews } = useQuery({
     queryKey: ["admin", "reviews"],
     queryFn: () => (base44 as any).admin.getReviews(),
     enabled: activeSection === "reviews",
   });
 
-  const { data: statusUpdates = [], isLoading: loadingStatuses } = useQuery({
+  const { data: statusUpdates = [], isLoading: loadingStatuses, isFetching: isFetchingStatuses } = useQuery({
     queryKey: ["admin", "status-updates"],
     queryFn: () => (base44 as any).admin.getStatusUpdates(),
     enabled: activeSection === "vibes",
   });
+
+  const { data: venueApplications = [], isLoading: loadingVenueApps, refetch: refetchVenueApps, isFetching: isFetchingVenueApps } = useQuery({
+    queryKey: ["admin", "venue-applications"],
+    queryFn: () => base44.entities.VenueApplication.list().catch(() => []),
+    enabled: activeSection === "venue-applications",
+  });
+
+  const anyFetching =
+    isFetchingStats ||
+    (activeSection === "users" && isFetchingUsers) ||
+    (activeSection === "events" && isFetchingEvents) ||
+    (activeSection === "orders" && isFetchingOrders) ||
+    (activeSection === "reviews" && isFetchingReviews) ||
+    (activeSection === "vibes" && isFetchingStatuses) ||
+    (activeSection === "venue-applications" && isFetchingVenueApps);
 
   // ─── Mutations ──────────────────────────────────────────────────────────────
 
@@ -289,6 +311,25 @@ export default function AdminDashboard() {
     },
   });
 
+  const approveVenueAppMutation = useMutation({
+    mutationFn: (appId: string) => base44.entities.VenueApplication.update(appId, { status: "approved" }),
+    onSuccess: () => {
+      refetchVenueApps();
+      toast({ title: "✅ Application Approved", description: "The venue has been marked as a Verified Partner." });
+    },
+  });
+
+  const rejectVenueAppMutation = useMutation({
+    mutationFn: ({ appId, reason }: { appId: string; reason: string }) =>
+      base44.entities.VenueApplication.update(appId, { status: "rejected", rejection_reason: reason }),
+    onSuccess: () => {
+      refetchVenueApps();
+      toast({ title: "❌ Application Rejected", description: "The application has been rejected and the organizer notified." });
+      setRejectingAppId(null);
+      setRejectionReason("");
+    },
+  });
+
   const toggleEventMutation = useMutation({
     mutationFn: ({ eventId, is_active }: { eventId: string; is_active: boolean }) =>
       (base44 as any).admin.updateEvent(eventId, { is_active }),
@@ -325,6 +366,26 @@ export default function AdminDashboard() {
       toast({ title: "Vibe Update Removed", description: "Status update has been deleted." });
     },
   });
+
+  const handleRefresh = useCallback(() => {
+    // Always refresh stats
+    refetchStats();
+    
+    // Refresh the currently active section's data
+    if (activeSection === "users") {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+    } else if (activeSection === "events") {
+      queryClient.invalidateQueries({ queryKey: ["admin", "events"] });
+    } else if (activeSection === "orders") {
+      queryClient.invalidateQueries({ queryKey: ["admin", "orders"] });
+    } else if (activeSection === "reviews") {
+      queryClient.invalidateQueries({ queryKey: ["admin", "reviews"] });
+    } else if (activeSection === "vibes") {
+      queryClient.invalidateQueries({ queryKey: ["admin", "status-updates"] });
+    } else if (activeSection === "venue-applications") {
+      refetchVenueApps();
+    }
+  }, [activeSection, refetchStats, refetchVenueApps, queryClient]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
@@ -471,7 +532,7 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
         {/* Collapse toggle */}
         <button
           onClick={() => setSidebarOpen((p) => !p)}
-          className="absolute -right-3 top-20 w-6 h-6 bg-zinc-800 border border-zinc-700 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition shadow-lg"
+          className="absolute -right-3 top-20 w-6 h-6 bg-zinc-800 border border-zinc-700 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition shadow-lg z-50 cursor-pointer"
         >
           {sidebarOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         </button>
@@ -519,11 +580,12 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
 
           <div className="ml-auto flex items-center gap-3">
             <button
-              onClick={() => refetchStats()}
-              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition"
-              title="Refresh stats"
+              onClick={handleRefresh}
+              disabled={anyFetching}
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition disabled:opacity-50"
+              title={`Refresh ${activeSection}`}
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className={`w-4 h-4 transition-transform duration-500 ${anyFetching ? "animate-spin text-orange-500" : ""}`} />
             </button>
             <div className="flex items-center gap-2 bg-zinc-800/40 px-3 py-1.5 rounded-xl border border-zinc-700/40">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -898,6 +960,65 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
               )}
             </AnimatePresence>
 
+            <AnimatePresence>
+              {rejectingAppId && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => {
+                      setRejectingAppId(null);
+                      setRejectionReason("");
+                    }}
+                    className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm"
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="fixed inset-0 m-auto w-full max-w-md h-fit bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-2xl z-50 flex flex-col gap-4 text-zinc-100"
+                  >
+                    <div className="flex items-center gap-2 pb-2 border-b border-zinc-800">
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
+                      <h3 className="text-lg font-black text-white">Rejection Reason</h3>
+                    </div>
+                    
+                    <p className="text-zinc-400 text-xs leading-relaxed">
+                      Please provide a clear explanation for rejecting or bringing down this venue. This reason will be saved and emailed directly to the applicant contact.
+                    </p>
+
+                    <textarea
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      placeholder="e.g. Invalid address provided or insufficient venue details."
+                      className="w-full h-28 bg-zinc-950 border border-zinc-850 focus:border-zinc-700 rounded-xl p-3 text-xs text-zinc-200 placeholder:text-zinc-650 focus:outline-none resize-none"
+                    />
+
+                    <div className="flex gap-3 justify-end pt-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setRejectingAppId(null);
+                          setRejectionReason("");
+                        }}
+                        className="border-zinc-800 bg-zinc-900/30 text-zinc-400 hover:text-white"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={() => rejectVenueAppMutation.mutate({ appId: rejectingAppId, reason: rejectionReason })}
+                        disabled={rejectVenueAppMutation.isPending || !rejectionReason.trim()}
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                      >
+                        {rejectVenueAppMutation.isPending ? "Submitting..." : "Reject Application"}
+                      </Button>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+
             {/* ─────────────── EVENTS ─────────────── */}
 
             {activeSection === "events" && (
@@ -1081,7 +1202,16 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                       <div key={r.id} className="p-4 bg-zinc-950/40 border border-zinc-800/60 hover:border-zinc-700/60 rounded-xl flex items-start justify-between gap-4 transition">
                         <div className="space-y-1.5 flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-sm text-zinc-200">{r.users?.name || "Anonymous"}</span>
+                            <span className="font-semibold text-sm text-zinc-200">
+                              {r.users?.name ||
+                                (Array.isArray(r.users) ? r.users[0]?.name : null) ||
+                                r.user?.name ||
+                                r.user_name ||
+                                r.users?.email ||
+                                (Array.isArray(r.users) ? r.users[0]?.email : null) ||
+                                r.user?.email ||
+                                "Anonymous"}
+                            </span>
                             <span className="text-xs text-amber-400 font-extrabold">★ {r.rating}</span>
                             {r.events?.title && (
                               <span className="text-[10px] text-zinc-500 bg-zinc-800/60 px-2 py-0.5 rounded-md truncate max-w-[140px]">
@@ -1103,6 +1233,145 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* ─────────────── VENUE APPLICATIONS ─────────────── */}
+            {activeSection === "venue-applications" && (
+              <motion.div key="venue-applications" {...fadeUp} className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 space-y-5">
+                <SectionHeader
+                  icon={Building}
+                  title="Venue Partner Applications"
+                  subtitle={`${venueApplications.length} total applications`}
+                  colorClass="text-indigo-400"
+                />
+
+                {loadingVenueApps ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="h-20 bg-zinc-800/30 rounded-xl animate-pulse" />
+                    ))}
+                  </div>
+                ) : venueApplications.length === 0 ? (
+                  <EmptyState message="No venue applications submitted yet." />
+                ) : (
+                  <div className="space-y-4">
+                    {venueApplications.map((app: any) => (
+                      <div key={app.id} className="p-5 bg-zinc-950/40 border border-zinc-850/40 hover:border-zinc-800/80 rounded-xl space-y-4 transition">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-zinc-900">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-white font-bold text-base">{app.venue_name}</h3>
+                              <Badge variant="outline" className={cn(
+                                "text-[9px] font-black uppercase tracking-wider",
+                                app.status === "approved" ? "border-green-500/30 bg-green-500/5 text-green-400" :
+                                app.status === "rejected" ? "border-red-500/30 bg-red-500/5 text-red-400" :
+                                "border-amber-500/30 bg-amber-500/5 text-amber-400"
+                              )}>
+                                {app.status || "pending"}
+                              </Badge>
+                            </div>
+                            <p className="text-zinc-500 text-xs mt-1 capitalize">{app.venue_type} · Capacity: {app.capacity || "N/A"}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            {app.status === "approved" ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setRejectingAppId(app.id)}
+                                className="border-red-500/30 hover:bg-red-500/5 text-red-400 hover:text-red-300 font-bold text-xs h-8 rounded-lg px-3"
+                              >
+                                Reject / Bring Down
+                              </Button>
+                            ) : app.status === "rejected" ? (
+                              <Button
+                                size="sm"
+                                onClick={() => approveVenueAppMutation.mutate(app.id)}
+                                disabled={approveVenueAppMutation.isPending}
+                                className="bg-green-600 hover:bg-green-700 text-white font-bold text-xs h-8 rounded-lg px-3"
+                              >
+                                Approve / Restore
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => approveVenueAppMutation.mutate(app.id)}
+                                  disabled={approveVenueAppMutation.isPending}
+                                  className="bg-green-600 hover:bg-green-700 text-white font-bold text-xs h-8 rounded-lg px-3"
+                                >
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setRejectingAppId(app.id)}
+                                  className="border-red-500/30 hover:bg-red-500/5 text-red-400 hover:text-red-300 font-bold text-xs h-8 rounded-lg px-3"
+                                >
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                          <div className="space-y-1">
+                            <p className="text-zinc-500 font-semibold uppercase tracking-wider text-[9px]">Location Details</p>
+                            <p className="text-zinc-300">{app.address}, {app.city}, {app.state}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-zinc-500 font-semibold uppercase tracking-wider text-[9px]">Applicant Contact</p>
+                            <p className="text-zinc-300">{app.applicant_name} ({app.applicant_role})</p>
+                            <p className="text-zinc-400 text-[11px]">{app.applicant_email} {app.applicant_phone ? `· ${app.applicant_phone}` : ""}</p>
+                          </div>
+                        </div>
+
+                        {app.description && (
+                          <div className="bg-zinc-950/50 p-3 rounded-lg border border-zinc-900 text-xs">
+                            <p className="text-zinc-500 font-semibold uppercase tracking-wider text-[9px] mb-1">Description</p>
+                            <p className="text-zinc-300 leading-relaxed">{app.description}</p>
+                          </div>
+                        )}
+
+                        {app.status === "rejected" && app.rejection_reason && (
+                          <div className="bg-red-950/20 p-3 rounded-lg border border-red-900/30 text-xs">
+                            <p className="text-red-400 font-semibold uppercase tracking-wider text-[9px] mb-1">Reason for Rejection</p>
+                            <p className="text-red-200 leading-relaxed">{app.rejection_reason}</p>
+                          </div>
+                        )}
+
+                        {app.images && app.images.length > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="text-zinc-550 font-semibold uppercase tracking-wider text-[9px]">Venue Photos</p>
+                            <div className="flex flex-wrap gap-2">
+                              {app.images.map((url: string, index: number) => (
+                                <a key={index} href={url} target="_blank" rel="noopener noreferrer" className="w-16 h-16 rounded-xl overflow-hidden border border-zinc-850 bg-zinc-950 hover:border-zinc-700 transition block">
+                                  <img src={url} alt={`Venue photo ${index + 1}`} className="w-full h-full object-cover" />
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {(app.website || app.social_media) && (
+                          <div className="flex gap-4 text-xs text-zinc-500">
+                            {app.website && (
+                              <a href={app.website} target="_blank" rel="noopener noreferrer" className="hover:text-orange-400 transition underline">
+                                Website
+                              </a>
+                            )}
+                            {app.social_media && (
+                              <span className="text-zinc-400">
+                                Instagram: {app.social_media}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1134,7 +1403,16 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                       <div key={s.id} className="p-4 bg-zinc-950/40 border border-zinc-800/60 hover:border-zinc-700/60 rounded-xl flex items-start justify-between gap-4 transition">
                         <div className="space-y-1.5 flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-sm text-zinc-200">{s.users?.name || "Crowd Spotter"}</span>
+                            <span className="font-semibold text-sm text-zinc-200">
+                              {s.users?.name ||
+                                (Array.isArray(s.users) ? s.users[0]?.name : null) ||
+                                s.user?.name ||
+                                s.user_name ||
+                                s.users?.email ||
+                                (Array.isArray(s.users) ? s.users[0]?.email : null) ||
+                                s.user?.email ||
+                                "Crowd Spotter"}
+                            </span>
                             <Badge variant="outline" className="border-purple-500/20 bg-purple-500/5 text-purple-400 text-[10px] font-bold">
                               Vibe {s.vibe_score || "—"}
                             </Badge>

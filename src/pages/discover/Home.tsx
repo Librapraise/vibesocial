@@ -101,6 +101,13 @@ export default function Home() {
   const { user } = useAuth();
   const [search, setSearch] = useState<string>("");
   const [venueFilter, setVenueFilter] = useState<string>("all");
+
+  React.useEffect(() => {
+    const query = new URLSearchParams(window.location.search).get("search");
+    if (query) {
+      setSearch(query);
+    }
+  }, []);
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [stateSearch, setStateSearch] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("vibe");

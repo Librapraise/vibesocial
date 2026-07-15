@@ -11,24 +11,30 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 function generateICalEvent(saved) {
-  const start = saved.event_start_time
-    ? new Date(saved.event_start_time).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z"
+  const title = saved.event_title || saved.events?.title || "Event";
+  const startTime = saved.event_start_time || saved.events?.start_time;
+  const venueName = saved.event_venue_name || saved.events?.venue_name;
+  const address = saved.event_address || saved.events?.address;
+
+  const start = startTime
+    ? new Date(startTime).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z"
     : "";
   const end = start; // fallback: same as start
 
   return [
     "BEGIN:VEVENT",
-    `SUMMARY:${saved.event_title || "Event"}`,
+    `SUMMARY:${title}`,
     `DTSTART:${start}`,
     `DTEND:${end}`,
-    `LOCATION:${saved.event_address || saved.event_venue_name || ""}`,
-    `DESCRIPTION:Check vibes at ${saved.event_venue_name || "the venue"}`,
+    `LOCATION:${address || venueName || ""}`,
+    `DESCRIPTION:Check vibes at ${venueName || "the venue"}`,
     `UID:${saved.event_id}@nightvibe`,
     "END:VEVENT",
   ].join("\r\n");
 }
 
 function downloadIcal(saved) {
+  const title = saved.event_title || saved.events?.title || "event";
   const cal = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -41,28 +47,37 @@ function downloadIcal(saved) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${saved.event_title || "event"}.ics`;
+  a.download = `${title}.ics`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
 function buildGoogleCalendarUrl(saved) {
+  const title = saved.event_title || saved.events?.title || "Event";
+  const venueName = saved.event_venue_name || saved.events?.venue_name;
+  const address = saved.event_address || saved.events?.address;
+  const startTime = saved.event_start_time || saved.events?.start_time;
+
   const base = "https://calendar.google.com/calendar/render?action=TEMPLATE";
-  const title = encodeURIComponent(saved.event_title || "Event");
-  const location = encodeURIComponent(saved.event_address || saved.event_venue_name || "");
-  const details = encodeURIComponent(`Check vibes at ${saved.event_venue_name || "the venue"}`);
+  const encTitle = encodeURIComponent(title);
+  const location = encodeURIComponent(address || venueName || "");
+  const details = encodeURIComponent(`Check vibes at ${venueName || "the venue"}`);
   let dates = "";
-  if (saved.event_start_time) {
-    const d = new Date(saved.event_start_time).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  if (startTime) {
+    const d = new Date(startTime).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
     dates = `&dates=${d}/${d}`;
   }
-  return `${base}&text=${title}&location=${location}&details=${details}${dates}`;
+  return `${base}&text=${encTitle}&location=${location}&details=${details}${dates}`;
 }
 
 function SavedEventCard({ saved, onRemove }) {
-  const queryClient = useQueryClient();
-  const hasTime = !!saved.event_start_time;
-  const startDate = hasTime ? new Date(saved.event_start_time) : null;
+  const eventTitle = saved.event_title || saved.events?.title || "Event";
+  const eventVenueName = saved.event_venue_name || saved.events?.venue_name;
+  const eventStartTime = saved.event_start_time || saved.events?.start_time;
+  const eventAddress = saved.event_address || saved.events?.address;
+
+  const hasTime = !!eventStartTime;
+  const startDate = hasTime ? new Date(eventStartTime) : null;
   const isUpcoming = startDate ? isFuture(startDate) : true;
   const isHappeningToday = startDate ? isToday(startDate) : false;
 
@@ -87,9 +102,9 @@ function SavedEventCard({ saved, onRemove }) {
               <Badge className="bg-zinc-700 text-zinc-400 border-zinc-600 text-[10px]">Past</Badge>
             )}
           </div>
-          <h3 className="text-white font-semibold text-base leading-tight truncate">{saved.event_title}</h3>
-          {saved.event_venue_name && (
-            <p className="text-zinc-400 text-sm truncate">{saved.event_venue_name}</p>
+          <h3 className="text-white font-semibold text-base leading-tight truncate">{eventTitle}</h3>
+          {eventVenueName && (
+            <p className="text-zinc-400 text-sm truncate">{eventVenueName}</p>
           )}
         </div>
         <button
@@ -101,16 +116,16 @@ function SavedEventCard({ saved, onRemove }) {
         </button>
       </div>
 
-      {hasTime && (
+      {hasTime && startDate && (
         <div className="flex items-center gap-1.5 text-sm text-zinc-400">
           <Clock className="w-3.5 h-3.5" />
           <span>{format(startDate, "EEE, MMM d · h:mm a")}</span>
         </div>
       )}
-      {saved.event_address && (
+      {eventAddress && (
         <div className="flex items-center gap-1.5 text-sm text-zinc-500 truncate">
           <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="truncate">{saved.event_address}</span>
+          <span className="truncate">{eventAddress}</span>
         </div>
       )}
 
@@ -151,12 +166,14 @@ export default function MyCalendar() {
     queryFn: () => base44.entities.SavedEvent.list("-event_start_time", 100),
   });
 
-  const upcoming = savedEvents.filter((s) =>
-    !s.event_start_time || isFuture(new Date(s.event_start_time)) || isToday(new Date(s.event_start_time))
-  );
-  const past = savedEvents.filter((s) =>
-    s.event_start_time && isPast(new Date(s.event_start_time)) && !isToday(new Date(s.event_start_time))
-  );
+  const upcoming = savedEvents.filter((s) => {
+    const startTime = s.event_start_time || s.events?.start_time;
+    return !startTime || isFuture(new Date(startTime)) || isToday(new Date(startTime));
+  });
+  const past = savedEvents.filter((s) => {
+    const startTime = s.event_start_time || s.events?.start_time;
+    return startTime && isPast(new Date(startTime)) && !isToday(new Date(startTime));
+  });
 
   const displayed = tab === "upcoming" ? upcoming : past;
 

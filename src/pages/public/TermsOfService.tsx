@@ -78,7 +78,23 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    title: "10. Disclaimers and Limitation of Liability",
+    title: "10. Subscriptions & Billing",
+    body: [
+      "VibesSocial offers premium tier features (Plus and VIP) on a recurring subscription basis. Subscriptions are billed in advance on a recurring monthly cycle.",
+      "You can manage your subscription payment methods, view invoices, upgrade, or cancel your active plan at any time through our Stripe Customer Portal.",
+      "Subscription cancellations take effect at the end of the current billing cycle, during which you will retain full access to premium tier features.",
+    ],
+  },
+  {
+    title: "11. Organizers & Stripe Connect",
+    body: [
+      "Event organizers who sell tickets on VibesSocial agree to link their accounts via Stripe Connect (Express) to receive payouts.",
+      "Payment processing services for organizers on VibesSocial are provided by Stripe and are subject to the Stripe Connected Account Agreement, which includes the Stripe Terms of Service.",
+      "By agreeing to these terms or continuing to operate as an organizer on VibesSocial, you agree to be bound by the Stripe Services Agreement, as modified by Stripe from time to time.",
+    ],
+  },
+  {
+    title: "12. Disclaimers and Limitation of Liability",
     body: [
       "The Service is provided \"as is\" and \"as available\" without warranties of any kind, either express or implied.",
       "VibesSocial shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of the Service.",
@@ -86,21 +102,21 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    title: "11. Safety",
+    title: "13. Safety",
     body: [
       "Your safety is important to us. We provide safety resources in our Safety Center, but you are ultimately responsible for your personal safety while attending events.",
       "If you encounter a situation that feels unsafe, contact local authorities or venue security immediately.",
     ],
   },
   {
-    title: "12. Termination",
+    title: "14. Termination",
     body: [
       "We may terminate or suspend your account and access to the Service immediately, without prior notice, for any reason, including if you breach these Terms.",
       "You may stop using the Service at any time. Upon termination, your right to use the Service will cease immediately.",
     ],
   },
   {
-    title: "13. Changes to Terms",
+    title: "15. Changes to Terms",
     body: [
       "We reserve the right to modify these Terms at any time. We will notify users of significant changes. Continued use of the Service after changes constitutes acceptance of the updated Terms.",
     ],

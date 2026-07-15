@@ -261,6 +261,25 @@ function EditEventForm({ event, onDone }) {
     cover_image: event.cover_image || "",
   });
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const res = await base44.integrations.Core.UploadFile({ file });
+      if (res && res.file_url) {
+        setForm(prev => ({ ...prev, cover_image: res.file_url }));
+      }
+    } catch (err) {
+      console.error("Upload failed", err);
+      alert("Failed to upload image. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -313,10 +332,31 @@ function EditEventForm({ event, onDone }) {
         </div>
       </div>
       <div className="space-y-2">
-        <Label className="text-zinc-400 text-xs">Cover image URL</Label>
-        <Input value={form.cover_image} onChange={(e) => setForm({ ...form, cover_image: e.target.value })}
-          placeholder="https://…"
-          className="bg-zinc-950/50 border-zinc-800 text-white" />
+        <Label className="text-zinc-400 text-xs">Cover image</Label>
+        <div className="flex gap-2">
+          <Input value={form.cover_image} onChange={(e) => setForm({ ...form, cover_image: e.target.value })}
+            placeholder="https://… or upload below"
+            className="bg-zinc-950/50 border-zinc-800 text-white flex-1 text-xs" />
+          <div className="relative">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+              id="event-cover-upload"
+              disabled={uploading}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={uploading}
+              onClick={() => document.getElementById("event-cover-upload")?.click()}
+              className="border-zinc-800 bg-zinc-900/30 text-zinc-400 hover:text-white h-9 px-3 rounded-lg text-xs"
+            >
+              {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Upload"}
+            </Button>
+          </div>
+        </div>
       </div>
       <div className="space-y-2">
         <Label className="text-zinc-400 text-xs">Description</Label>

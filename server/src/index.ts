@@ -23,6 +23,7 @@ import adminRoutes from "./routes/admin";
 import notificationRoutes from "./routes/notifications";
 import stripeConnectRoutes from "./routes/stripeConnect";
 import billingRoutes from "./routes/billing";
+import venueApplicationRoutes from "./routes/venueApplications";
 
 const app = express();
 const PORT = env.PORT || 5000;
@@ -83,6 +84,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/stripe-connect", stripeConnectRoutes);
 app.use("/api/billing", billingRoutes);
+app.use("/api/venue-applications", venueApplicationRoutes);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 

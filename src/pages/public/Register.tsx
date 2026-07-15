@@ -15,6 +15,7 @@ export default function Register() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [done, setDone] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const passwordStrength = () => {
     const p = form.password;
@@ -40,6 +41,10 @@ export default function Register() {
     }
     if (form.password.length < 8) {
       setError("Password must be at least 8 characters");
+      return;
+    }
+    if (!acceptedTerms) {
+      setError("You must accept the Terms of Service to sign up.");
       return;
     }
 
@@ -205,6 +210,28 @@ export default function Register() {
                 />
               </div>
             </div>
+            
+            <div className="flex items-start gap-2.5 pt-1">
+              <input
+                id="register-terms"
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-1 w-4 h-4 rounded border-zinc-700 bg-zinc-800/60 text-orange-500 focus:ring-orange-500/40 focus:ring-offset-zinc-950 focus:ring-2 cursor-pointer"
+                required
+              />
+              <Label htmlFor="register-terms" className="text-zinc-400 text-xs font-normal leading-relaxed select-none cursor-pointer">
+                I accept the{" "}
+                <Link
+                  to={createPageUrl("TermsOfService")}
+                  target="_blank"
+                  className="text-orange-400 hover:text-orange-300 font-semibold underline transition-colors"
+                >
+                  Terms of Service
+                </Link>{" "}
+                and acknowledge the privacy policy.
+              </Label>
+            </div>
 
             {error && (
               <div className="bg-red-500/10 border border-red-500/25 rounded-xl px-4 py-3">
@@ -215,7 +242,7 @@ export default function Register() {
             <Button
               id="register-submit"
               type="submit"
-              disabled={loading || !form.name || !form.email || !form.password || !form.confirm}
+              disabled={loading || !form.name || !form.email || !form.password || !form.confirm || !acceptedTerms}
               className="w-full h-11 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}

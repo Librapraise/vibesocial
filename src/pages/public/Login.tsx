@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabaseBrowser } from "@/lib/AuthContext";
+import { supabaseBrowser, useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,10 +9,21 @@ import { createPageUrl } from "@/utils";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (user?.role === "admin") {
+        navigate(createPageUrl("AdminDashboard"));
+      } else {
+        navigate(createPageUrl("Home"));
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +41,7 @@ export default function Login() {
       return;
     }
 
-    // Auth state change in AuthContext will pick up the session automatically
-    navigate(createPageUrl("Home"));
+    // Navigation is handled automatically by the useEffect once isAuthenticated changes
   };
 
   return (

@@ -95,6 +95,7 @@ const ENDPOINT_MAP: Record<string, string> = {
   EventStatus: "/status-updates",
   SavedEvent: "/saved-events",
   UserActivity: "/user-activities",
+  VenueApplication: "/venue-applications",
 };
 
 const entityLiveHandler = {

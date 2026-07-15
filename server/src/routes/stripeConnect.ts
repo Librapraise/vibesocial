@@ -5,6 +5,7 @@ import { supabaseAdmin } from "../config/supabase";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler } from "../middleware/errorHandler";
 import { AppError } from "../middleware/errorHandler";
+import { sendEmail } from "../services/emailService";
 
 const router = Router();
 const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2026-06-24.dahlia" });
@@ -75,6 +76,23 @@ router.post(
       type: "account_onboarding",
     });
 
+    // Send onboarding link via email
+    await sendEmail({
+      to: user.email,
+      subject: "Action Required: Complete your Stripe Connect Onboarding - VibeSocial",
+      html: `
+        <h2>Stripe Connect Onboarding</h2>
+        <p>Hi ${user.name || "Organizer"},</p>
+        <p>You have initiated the onboarding flow to set up payouts for ticket sales on VibeSocial.</p>
+        <p>Please use the following secure link to complete your details on Stripe Express:</p>
+        <p><a href="${accountLink.url}" style="background-color: #f97316; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">Start Onboarding</a></p>
+        <p>If the button doesn't work, copy and paste this URL into your browser:</p>
+        <p>${accountLink.url}</p>
+        <br/>
+        <p>Best regards,<br/>The VibeSocial Team</p>
+      `
+    }).catch(err => console.error("Failed to send Connect onboarding email:", err));
+
     res.json({ url: accountLink.url });
   })
 );
@@ -124,6 +142,30 @@ router.get(
           stripe_connect_details_submitted: account.details_submitted,
         })
         .eq("id", userId);
+
+      // Send email if status became active
+      if (newStatus === "active" && user.stripe_connect_status !== "active") {
+        const { data: userData } = await supabaseAdmin
+          .from("users")
+          .select("email, name")
+          .eq("id", userId)
+          .single();
+
+        if (userData?.email) {
+          await sendEmail({
+            to: userData.email,
+            subject: "Stripe Connect Activated! 💳 - VibeSocial",
+            html: `
+              <h2>Stripe Connect Status Update</h2>
+              <p>Hi ${userData.name || "Organizer"},</p>
+              <p>Congratulations! Your Stripe Connect Express account is now fully active.</p>
+              <p>You can now accept card payments for your event tickets and receive payouts directly to your bank account.</p>
+              <br/>
+              <p>Best regards,<br/>The VibeSocial Team</p>
+            `
+          }).catch(err => console.error("Failed to send Connect active email:", err));
+        }
+      }
     }
 
     res.json({

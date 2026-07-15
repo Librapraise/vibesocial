@@ -90,7 +90,7 @@ export default function StatusFeed({ statuses, loading }: StatusFeedProps) {
               </div>
               <div>
                 <span className="text-zinc-400 text-xs">
-                  {status.reporter_name || "Anonymous"}
+                  {status.reporter_name || (status as any).users?.name || "Anonymous"}
                 </span>
               </div>
             </div>

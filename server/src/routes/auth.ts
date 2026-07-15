@@ -5,6 +5,7 @@ import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { validate } from "../middleware/validate";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
+import { sendEmail } from "../services/emailService";
 
 const router = Router();
 
@@ -103,6 +104,20 @@ router.post(
     };
 
     await supabaseAdmin.from("users").insert(profile);
+
+    // Welcome email
+    await sendEmail({
+      to: email,
+      subject: "Welcome to VibeSocial! 🌟",
+      html: `
+        <h2>Welcome to VibeSocial, ${name}!</h2>
+        <p>We are thrilled to have you join our community.</p>
+        <p>Discover local clubs, events, track crowd levels, and stay up to date with the latest vibes in your city.</p>
+        <p>Log in to your account and start exploring now!</p>
+        <br/>
+        <p>Best regards,<br/>The VibeSocial Team</p>
+      `
+    }).catch(err => console.error("Failed to send welcome email:", err));
 
     res.status(201).json({ message: "Account created successfully. Please sign in." });
   })
@@ -254,6 +269,20 @@ router.post(
     });
 
     if (error) throw new AppError(error.message, 400);
+
+    // Send security alert email
+    await sendEmail({
+      to: req.user!.email,
+      subject: "Security Alert: Password Changed - VibeSocial",
+      html: `
+        <h2>Security Notice</h2>
+        <p>Hi ${req.user!.name || "User"},</p>
+        <p>This is a confirmation that the password for your VibeSocial account has been successfully changed.</p>
+        <p>If you did not make this change, please contact our support team immediately to secure your account.</p>
+        <br/>
+        <p>Best regards,<br/>The VibeSocial Team</p>
+      `
+    }).catch(err => console.error("Failed to send password change security alert:", err));
 
     res.json({ message: "Password updated successfully" });
   })

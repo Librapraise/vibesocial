@@ -3,12 +3,19 @@ import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MapPin, Search, Loader2, Calendar } from "lucide-react";
+import { ArrowLeft, MapPin, Search, Loader2, Calendar, BadgeCheck } from "lucide-react";
 import { createPageUrl, venueTypeIcons } from "@/utils";
 import VibeScoreBadge from "@/components/events/VibeScoreBadge";
 import { cn } from "@/lib/utils";
 
 const VENUE_TYPES = ["club", "lounge", "bar", "rooftop", "house_party", "pop_up", "concert", "other"];
+
+const VERIFIED_MOCK_VENUES = new Set([
+  "the velvet lounge",
+  "acoustic cellar",
+  "skyline terrace",
+  "electric basement"
+]);
 
 type EventData = {
   id: string;
@@ -30,6 +37,7 @@ type Venue = {
   topVibe: number;
   latestStart: string | null;
   cover_image: string | null;
+  isVerified?: boolean;
 };
 
 export default function VenueDirectory() {
@@ -41,9 +49,44 @@ export default function VenueDirectory() {
     queryFn: () => base44.entities.Event.filter({ is_active: true }, "-current_vibe_score", 200),
   });
 
+  const { data: applications = [] } = useQuery({
+    queryKey: ["venueApplications"],
+    queryFn: () => base44.entities.VenueApplication.list().catch(() => []),
+  });
+
+  const verifiedVenueNames = useMemo(() => {
+    // Collect lowercase names of approved applications (fallback to pending/undefined in mock)
+    return new Set(
+      applications
+        .filter((app: any) => app.status === "approved" || app.status === undefined)
+        .map((app: any) => app.venue_name?.toLowerCase().trim())
+        .filter(Boolean)
+    );
+  }, [applications]);
+
   // Group events by venue_name
   const venues = useMemo(() => {
     const map: Record<string, Venue> = {};
+
+    // 1. Populate from approved venue applications so they show up even with 0 events
+    applications.forEach((app: any) => {
+      if (app.status === "approved" && app.venue_name) {
+        const nameKey = app.venue_name;
+        map[nameKey] = {
+          name: nameKey,
+          venue_type: app.venue_type,
+          address: app.address,
+          state: app.state,
+          eventCount: 0,
+          topVibe: 0,
+          latestStart: null,
+          cover_image: null,
+          isVerified: true
+        };
+      }
+    });
+
+    // 2. Next, group active events and merge/increment counts
     events.forEach((e) => {
       const key = e.venue_name;
       if (!key) return;
@@ -57,6 +100,7 @@ export default function VenueDirectory() {
           topVibe: 0,
           latestStart: null,
           cover_image: null,
+          isVerified: VERIFIED_MOCK_VENUES.has(key.toLowerCase().trim()) || verifiedVenueNames.has(key.toLowerCase().trim())
         };
       }
       map[key].eventCount += 1;
@@ -68,6 +112,7 @@ export default function VenueDirectory() {
         map[key].latestStart = e.start_time;
       }
     });
+
     let list = Object.values(map);
     if (activeType !== "all") list = list.filter((v) => v.venue_type === activeType);
     if (search.trim()) {
@@ -75,7 +120,7 @@ export default function VenueDirectory() {
       list = list.filter((v) => v.name.toLowerCase().includes(q) || (v.address || "").toLowerCase().includes(q));
     }
     return list.sort((a, b) => b.topVibe - a.topVibe);
-  }, [events, activeType, search]);
+  }, [events, applications, activeType, search, verifiedVenueNames]);
 
   return (
     <div className="min-h-screen pb-20">
@@ -149,9 +194,10 @@ export default function VenueDirectory() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {venues.map((v) => (
-              <div
+              <Link
                 key={v.name}
-                className="bg-zinc-900 border border-zinc-800 hover:border-zinc-600 rounded-2xl overflow-hidden transition hover:-translate-y-0.5"
+                to={`${createPageUrl("Home")}?search=${encodeURIComponent(v.name)}`}
+                className="bg-zinc-900 border border-zinc-800 hover:border-zinc-650 hover:shadow-lg hover:shadow-orange-500/2 rounded-2xl overflow-hidden transition block hover:-translate-y-0.5"
               >
                 <div className="h-28 relative">
                   {v.cover_image ? (
@@ -178,7 +224,14 @@ export default function VenueDirectory() {
                       {v.venue_type?.replace("_", " ")}
                     </span>
                   </div>
-                  <h3 className="text-white font-semibold truncate">{v.name}</h3>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <h3 className="text-white font-semibold truncate">{v.name}</h3>
+                    {v.isVerified && (
+                      <span title="Verified Partner Venue" className="inline-flex items-center flex-shrink-0">
+                        <BadgeCheck className="w-4 h-4 text-orange-400 fill-orange-400/10" />
+                      </span>
+                    )}
+                  </div>
                   {v.address && (
                     <p className="text-zinc-500 text-xs flex items-center gap-1 truncate">
                       <MapPin className="w-3 h-3" /> {v.address}
@@ -190,7 +243,7 @@ export default function VenueDirectory() {
                     </span>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

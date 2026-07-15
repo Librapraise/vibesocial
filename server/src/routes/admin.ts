@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { z } from "zod";
 import { validate } from "../middleware/validate";
+import { sendEmail } from "../services/emailService";
 
 const router = Router();
 
@@ -108,6 +109,76 @@ router.get(
       newUsersThisWeek: newUsersWeek || 0,
       newOrdersThisWeek: newOrdersWeek || 0,
     });
+  })
+);
+
+/**
+ * POST /api/admin/trigger-weekly-report
+ * Trigger sending the weekly dashboard stats email summary to administrators.
+ */
+router.post(
+  "/trigger-weekly-report",
+  asyncHandler(async (_req: Request, res: Response) => {
+    // Fetch metrics
+    const [
+      { count: totalUsers },
+      { count: totalEvents },
+      { count: activeEvents },
+      { count: totalOrders },
+      { count: totalReviews },
+      { count: totalStatusUpdates },
+      { data: revenueData },
+    ] = await Promise.all([
+      supabaseAdmin.from("users").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("events").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("events").select("*", { count: "exact", head: true }).eq("is_active", true),
+      supabaseAdmin.from("orders").select("*", { count: "exact", head: true }).eq("status", "confirmed"),
+      supabaseAdmin.from("reviews").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("status_updates").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("orders").select("total_amount").eq("status", "confirmed"),
+    ]);
+
+    const totalRevenue = (revenueData || []).reduce(
+      (sum: number, o: any) => sum + (o.total_amount || 0),
+      0
+    );
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { count: newUsersWeek } = await supabaseAdmin
+      .from("users")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", sevenDaysAgo);
+
+    const { count: newOrdersWeek } = await supabaseAdmin
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", sevenDaysAgo)
+      .eq("status", "confirmed");
+
+    // Send email
+    const adminEmail = process.env.EMAIL_FROM || "admin@vibesocial.app";
+    await sendEmail({
+      to: adminEmail,
+      subject: "📊 Weekly Platform Health & Activity Summary - VibeSocial",
+      html: `
+        <h2>Weekly Platform Report</h2>
+        <p>Here is the weekly health and metrics summary for VibeSocial:</p>
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; color: #1f2937; margin: 15px 0;">
+          <strong>Total Users:</strong> ${totalUsers || 0} (${newUsersWeek || 0} new this week)<br/>
+          <strong>Total Events:</strong> ${totalEvents || 0} (${activeEvents || 0} currently active)<br/>
+          <strong>Confirmed Orders:</strong> ${totalOrders || 0} (${newOrdersWeek || 0} this week)<br/>
+          <strong>Total Revenue:</strong> $${totalRevenue.toFixed(2)}<br/>
+          <strong>Total Status Updates:</strong> ${totalStatusUpdates || 0}<br/>
+          <strong>Total Reviews:</strong> ${totalReviews || 0}
+        </div>
+        <p>Review the full console on your admin dashboard.</p>
+        <br/>
+        <p>Best regards,<br/>VibeSocial Automated Systems</p>
+      `
+    });
+
+    res.json({ success: true, message: "Weekly report email dispatched to administrator." });
   })
 );
 
@@ -368,8 +439,32 @@ router.delete(
   "/reviews/:id",
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
+
+    // Fetch review and user email before deleting
+    const { data: review } = await supabaseAdmin
+      .from("reviews")
+      .select("comment, users!user_id(email, name)")
+      .eq("id", id)
+      .single() as any;
+
     const { error } = await supabaseAdmin.from("reviews").delete().eq("id", id);
     if (error) throw new AppError(error.message, 500);
+
+    if (review?.users?.email) {
+      await sendEmail({
+        to: review.users.email,
+        subject: "Content Moderation Notice - VibeSocial",
+        html: `
+          <h2>Content Moderation Update</h2>
+          <p>Hi ${review.users.name || "User"},</p>
+          <p>Your review containing the comment <em>"${review.comment || ""}"</em> has been removed by platform administrators due to a violation of our community guidelines.</p>
+          <p>Please review our Terms of Service to ensure future contributions align with our community values.</p>
+          <br/>
+          <p>Best regards,<br/>The VibeSocial Team</p>
+        `
+      }).catch(err => console.error("Failed to send review moderation email:", err));
+    }
+
     res.json({ success: true });
   })
 );
@@ -409,11 +504,34 @@ router.delete(
   "/status-updates/:id",
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
+
+    // Fetch status update and user details before deleting
+    const { data: statusUpdate } = await supabaseAdmin
+      .from("status_updates")
+      .select("comment, users!user_id(email, name)")
+      .eq("id", id)
+      .single() as any;
+
     const { error } = await supabaseAdmin
       .from("status_updates")
       .delete()
       .eq("id", id);
     if (error) throw new AppError(error.message, 500);
+
+    if (statusUpdate?.users?.email) {
+      await sendEmail({
+        to: statusUpdate.users.email,
+        subject: "Status Update Moderated - VibeSocial",
+        html: `
+          <h2>Content Moderation Update</h2>
+          <p>Hi ${statusUpdate.users.name || "User"},</p>
+          <p>Your vibe status update containing the comment <em>"${statusUpdate.comment || "N/A"}"</em> has been removed by platform administrators due to suspicious activity or a violation of our community standards.</p>
+          <br/>
+          <p>Best regards,<br/>The VibeSocial Team</p>
+        `
+      }).catch(err => console.error("Failed to send status update moderation email:", err));
+    }
+
     res.json({ success: true });
   })
 );

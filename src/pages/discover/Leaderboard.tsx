@@ -70,7 +70,7 @@ export default function Leaderboard() {
   const reporters = useMemo(() => {
     const map: Record<string, Reporter> = {};
     statuses.forEach((s) => {
-      const name = s.reporter_name || "Anonymous";
+      const name = s.reporter_name || (s as any).users?.name || "Anonymous";
       if (!map[name]) map[name] = { name, count: 0, topVibe: 0 };
       map[name].count += 1;
       if (s.vibe_score > map[name].topVibe) map[name].topVibe = s.vibe_score;

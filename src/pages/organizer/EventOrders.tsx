@@ -189,7 +189,9 @@ export default function EventOrders() {
                         <p className={cn("font-bold text-sm", order.total_amount === 0 ? "text-green-400" : "text-orange-400")}>
                           {order.total_amount === 0 ? "Free" : `$${order.total_amount.toFixed(2)}`}
                         </p>
-                        <p className="text-zinc-600 text-xs">{format(new Date(order.created_date), "MMM d, h:mm a")}</p>
+                        <p className="text-zinc-600 text-xs">
+                          {format(order.created_at ? new Date(order.created_at) : order.created_date ? new Date(order.created_date) : new Date(), "MMM d, h:mm a")}
+                        </p>
                       </div>
                     </div>
                   </div>

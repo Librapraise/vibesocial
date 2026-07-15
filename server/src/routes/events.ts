@@ -4,6 +4,7 @@ import { requireAuth, optionalAuth } from "../middleware/auth";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { validate } from "../middleware/validate";
 import { z } from "zod";
+import { sendEmail } from "../services/emailService";
 
 const router = Router();
 
@@ -163,7 +164,7 @@ router.put(
     // Verify ownership (admins can update any)
     const { data: existing } = await supabaseAdmin
       .from("events")
-      .select("created_by")
+      .select("title, created_by, start_time, address")
       .eq("id", id)
       .single();
 
@@ -182,6 +183,40 @@ router.put(
 
     if (error) throw new AppError(error.message, 400);
 
+    // Notify ticket holders if critical fields (time/location) changed
+    const timeChanged = req.body.start_time && req.body.start_time !== existing.start_time;
+    const locationChanged = req.body.address && req.body.address !== existing.address;
+
+    if (timeChanged || locationChanged) {
+      const { data: orders } = await supabaseAdmin
+        .from("orders")
+        .select("attendee_email, attendee_name")
+        .eq("event_id", id)
+        .eq("status", "confirmed");
+
+      if (orders && orders.length > 0) {
+        for (const order of orders) {
+          await sendEmail({
+            to: order.attendee_email,
+            subject: `Important Update: Changes to ${data.title} 📢`,
+            html: `
+              <h2>Event Update Notice</h2>
+              <p>Hi ${order.attendee_name || "Attendee"},</p>
+              <p>There has been an update to the event <strong>${data.title}</strong> that you hold tickets for.</p>
+              <div style="background-color: #1a1a1a; padding: 15px; border-radius: 8px; color: #fff; margin: 15px 0;">
+                <strong>New Venue:</strong> ${data.venue_name || "TBA"}<br/>
+                <strong>New Location:</strong> ${data.address || "TBA"}<br/>
+                <strong>New Date/Time:</strong> ${data.start_time ? new Date(data.start_time).toLocaleString() : "TBA"}
+              </div>
+              <p>Please update your calendar details accordingly. See you there!</p>
+              <br/>
+              <p>Best regards,<br/>The VibeSocial Team</p>
+            `
+          }).catch(err => console.error("Failed to send event update email:", err));
+        }
+      }
+    }
+
     res.json(data);
   })
 );
@@ -198,7 +233,7 @@ router.delete(
 
     const { data: existing } = await supabaseAdmin
       .from("events")
-      .select("created_by")
+      .select("title, created_by")
       .eq("id", id)
       .single();
 
@@ -212,6 +247,30 @@ router.delete(
       .from("events")
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq("id", id);
+
+    // Fetch and notify confirmed ticket holders
+    const { data: orders } = await supabaseAdmin
+      .from("orders")
+      .select("attendee_email, attendee_name")
+      .eq("event_id", id)
+      .eq("status", "confirmed");
+
+    if (orders && orders.length > 0) {
+      for (const order of orders) {
+        await sendEmail({
+          to: order.attendee_email,
+          subject: `Urgent: Event Cancelled - ${existing.title} ⚠️`,
+          html: `
+            <h2>Event Cancellation Notice</h2>
+            <p>Hi ${order.attendee_name || "Attendee"},</p>
+            <p>We regret to inform you that the event <strong>${existing.title}</strong> has been cancelled by the organizer.</p>
+            <p>If you purchased a paid ticket, a full refund will be initiated automatically. Refund processing typically takes 5-10 business days.</p>
+            <br/>
+            <p>Best regards,<br/>The VibeSocial Team</p>
+          `
+        }).catch(err => console.error("Failed to send cancellation email:", err));
+      }
+    }
 
     res.json({ success: true });
   })

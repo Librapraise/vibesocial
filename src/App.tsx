@@ -29,8 +29,9 @@ const PUBLIC_PAGES = [
 ];
 
 const LayoutWrapper = ({ children, currentPageName }: { children: React.ReactNode; currentPageName: string }) => {
+  const { isAuthenticated } = useAuth();
   const isPublicPage = PUBLIC_PAGES.includes(currentPageName);
-  const hideLayout = isPublicPage || currentPageName === "Onboarding" || currentPageName === "AdminDashboard";
+  const hideLayout = (isPublicPage && !isAuthenticated) || currentPageName === "Onboarding" || currentPageName === "AdminDashboard";
   return Layout && !hideLayout ? (
     <Layout currentPageName={currentPageName}>{children}</Layout>
   ) : (

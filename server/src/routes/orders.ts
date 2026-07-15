@@ -7,6 +7,7 @@ import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { validate } from "../middleware/validate";
 import { env } from "../config/env";
 import { z } from "zod";
+import { sendEmail } from "../services/emailService";
 
 const router = Router();
 const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2026-06-24.dahlia" });
@@ -265,6 +266,65 @@ router.post(
 
           await supabaseAdmin.from("tickets").insert(ticketRows);
         }
+
+        // Get event details for confirmation email
+        const { data: eventDetails } = await supabaseAdmin
+          .from("events")
+          .select("title, venue_name, address, start_time")
+          .eq("id", order.event_id)
+          .single();
+
+        // Send ticket confirmation email
+        await sendEmail({
+          to: order.attendee_email,
+          subject: `Your Tickets for ${eventDetails?.title || "VibeSocial Event"}! 🎫`,
+          html: `
+            <h2>Ticket Confirmation</h2>
+            <p>Hi ${order.attendee_name || "there"},</p>
+            <p>Your payment was successful! Your tickets for <strong>${eventDetails?.title || "VibeSocial Event"}</strong> have been confirmed.</p>
+            <div style="background-color: #1a1a1a; padding: 15px; border-radius: 8px; color: #fff; margin: 15px 0;">
+              <strong>Venue:</strong> ${eventDetails?.venue_name || "TBA"}<br/>
+              <strong>Location:</strong> ${eventDetails?.address || "TBA"}<br/>
+              <strong>Date/Time:</strong> ${eventDetails?.start_time ? new Date(eventDetails.start_time).toLocaleString() : "TBA"}
+            </div>
+            <p>You can view your tickets and QR codes directly in your account under "My Tickets".</p>
+            <br/>
+            <p>Best regards,<br/>The VibeSocial Team</p>
+          `
+        }).catch(err => console.error("Failed to send ticket confirmation email:", err));
+
+        // Check for low inventory warning
+        for (const line of order.tickets) {
+          const { data: ticketType } = await supabaseAdmin
+            .from("ticket_types")
+            .select("name, capacity, tickets_sold, event_id")
+            .eq("id", line.ticket_type_id)
+            .single();
+
+          if (ticketType && ticketType.capacity > 0 && ticketType.tickets_sold >= ticketType.capacity * 0.9) {
+            const { data: eventAndOrganizer } = await supabaseAdmin
+              .from("events")
+              .select("title, created_by, users!created_by(email, name)")
+              .eq("id", ticketType.event_id)
+              .single() as any;
+
+            if (eventAndOrganizer?.users?.email) {
+              await sendEmail({
+                to: eventAndOrganizer.users.email,
+                subject: `⚠️ Low Inventory Alert: ${ticketType.name} for ${eventAndOrganizer.title}`,
+                html: `
+                  <h2>Low Ticket Inventory Warning</h2>
+                  <p>Hi ${eventAndOrganizer.users.name || "Organizer"},</p>
+                  <p>Your ticket tier <strong>${ticketType.name}</strong> for the event <strong>${eventAndOrganizer.title}</strong> is now 90% or more sold out!</p>
+                  <p>Current sales: <strong>${ticketType.tickets_sold} / ${ticketType.capacity}</strong></p>
+                  <p>Log in to your dashboard to adjust the capacity or manage your ticket types.</p>
+                  <br/>
+                  <p>Best regards,<br/>The VibeSocial Team</p>
+                `
+              }).catch(err => console.error("Failed to send low inventory email:", err));
+            }
+          }
+        }
       }
     }
 
@@ -314,6 +374,28 @@ router.post(
                 updated_at: new Date().toISOString()
               })
               .eq("id", userId);
+
+            // Fetch user info for confirmation email
+            const { data: userData } = await supabaseAdmin
+              .from("users")
+              .select("email, name")
+              .eq("id", userId)
+              .single();
+
+            if (userData?.email) {
+              await sendEmail({
+                to: userData.email,
+                subject: `Welcome to VibeSocial ${tier === "vip" ? "👑 VIP" : "⚡ Plus"}!`,
+                html: `
+                  <h2>Subscription Upgraded!</h2>
+                  <p>Hi ${userData.name || "there"},</p>
+                  <p>Thank you for upgrading! Your VibeSocial subscription is now active on the <strong>${tier.toUpperCase()}</strong> tier.</p>
+                  <p>You now have access to premium features, priority venue alerts, and exclusive event access.</p>
+                  <br/>
+                  <p>Best regards,<br/>The VibeSocial Team</p>
+                `
+              }).catch(err => console.error("Failed to send subscription confirmation email:", err));
+            }
           }
         }
       }
@@ -336,6 +418,37 @@ router.post(
             updated_at: new Date().toISOString()
           })
           .eq("email", email);
+
+        // Send cancellation email
+        await sendEmail({
+          to: email,
+          subject: "Your VibeSocial Subscription has ended",
+          html: `
+            <h2>Subscription Downgrade Notice</h2>
+            <p>We are sorry to see you go! Your VibeSocial premium subscription has been cancelled and your tier has been reset to Free.</p>
+            <p>You can re-subscribe at any time from your account settings.</p>
+            <br/>
+            <p>Best regards,<br/>The VibeSocial Team</p>
+          `
+        }).catch(err => console.error("Failed to send subscription deletion email:", err));
+      }
+    }
+
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object as Stripe.Invoice;
+      const email = invoice.customer_email;
+      if (email) {
+        await sendEmail({
+          to: email,
+          subject: "Urgent: Payment Failed for your VibeSocial Subscription ⚠️",
+          html: `
+            <h2>Subscription Payment Failed</h2>
+            <p>We were unable to process your payment for your VibeSocial premium subscription renewal.</p>
+            <p>Please log in to your account and update your payment details to avoid interruption of premium features.</p>
+            <br/>
+            <p>Best regards,<br/>The VibeSocial Team</p>
+          `
+        }).catch(err => console.error("Failed to send billing failure email:", err));
       }
     }
 
@@ -461,6 +574,20 @@ router.post(
         .update({ status: "cancelled" })
         .eq("order_id", id);
     }
+
+    // Send cancellation email
+    await sendEmail({
+      to: order.attendee_email,
+      subject: "Your Order has been Cancelled - VibeSocial",
+      html: `
+        <h2>Order Cancellation Notice</h2>
+        <p>Hi ${order.attendee_name || "there"},</p>
+        <p>Your order (ID: <strong>${order.id}</strong>) has been successfully cancelled.</p>
+        <p>If you were charged, a refund will be processed automatically back to your original payment method within 5-10 business days.</p>
+        <br/>
+        <p>Best regards,<br/>The VibeSocial Team</p>
+      `
+    }).catch(err => console.error("Failed to send order cancellation email:", err));
 
     res.json({ success: true, message: "Order cancelled successfully" });
   })

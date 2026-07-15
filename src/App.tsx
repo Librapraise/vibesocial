@@ -17,6 +17,7 @@ const PUBLIC_PAGES = [
   "Landing",
   "Login",
   "Register",
+  "EventDetail",
   "PrivacyPolicy",
   "CommunityGuidelines",
   "Feedback",

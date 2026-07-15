@@ -276,16 +276,36 @@ export default function EventDetail() {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="checkin" className="mt-5">
-              <div className="space-y-4">
-                <div className="text-center">
-                  <p className="text-zinc-300 font-semibold mb-1">Verify you're here</p>
-                  <p className="text-zinc-500 text-sm">Check in via your location or a QR code from the organizer to earn a <span className="text-green-400 font-medium">Verified Attending</span> badge.</p>
+              {!currentUser ? (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-center space-y-3">
+                  <MapPin className="w-8 h-8 mx-auto text-zinc-600" />
+                  <p className="text-zinc-300 font-semibold">Sign in to check in</p>
+                  <p className="text-zinc-500 text-xs">Verify your presence at the venue to let others know you are here.</p>
+                  <Button onClick={() => base44.auth.redirectToLogin(window.location.pathname + window.location.search)} className="bg-orange-500 hover:bg-orange-600 text-white">
+                    Sign In
+                  </Button>
                 </div>
-                <CheckInButton event={eventData} onCheckedIn={() => { setCheckedIn(true); queryClient.invalidateQueries({ queryKey: ["event", eventId] }); }} />
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <p className="text-zinc-300 font-semibold mb-1">Verify you're here</p>
+                    <p className="text-zinc-500 text-sm">Check in via your location or a QR code from the organizer to earn a <span className="text-green-400 font-medium">Verified Attending</span> badge.</p>
+                  </div>
+                  <CheckInButton event={eventData} onCheckedIn={() => { setCheckedIn(true); queryClient.invalidateQueries({ queryKey: ["event", eventId] }); }} />
+                </div>
+              )}
             </TabsContent>
             <TabsContent value="tickets" className="mt-5">
-              {checkoutSelections ? (
+              {!currentUser ? (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-center space-y-3">
+                  <Ticket className="w-8 h-8 mx-auto text-zinc-600" />
+                  <p className="text-zinc-300 font-semibold">Sign in to buy tickets</p>
+                  <p className="text-zinc-500 text-xs">You need an account to purchase tickets and receive your booking confirmation.</p>
+                  <Button onClick={() => base44.auth.redirectToLogin(window.location.pathname + window.location.search)} className="bg-orange-500 hover:bg-orange-600 text-white">
+                    Sign In
+                  </Button>
+                </div>
+              ) : checkoutSelections ? (
                 <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 relative">
                   <button
                     onClick={() => setCheckoutSelections(null)}
@@ -310,13 +330,35 @@ export default function EventDetail() {
               )}
             </TabsContent>
             <TabsContent value="update" className="mt-5">
-              <StatusUpdateForm eventId={eventId} onSubmitted={handleStatusSubmitted} />
+              {!currentUser ? (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-center space-y-3">
+                  <Megaphone className="w-8 h-8 mx-auto text-zinc-600" />
+                  <p className="text-zinc-300 font-semibold">Sign in to drop update</p>
+                  <p className="text-zinc-500 text-xs">Share real-time reports about wait times, crowd capacity, and the music vibe.</p>
+                  <Button onClick={() => base44.auth.redirectToLogin(window.location.pathname + window.location.search)} className="bg-orange-500 hover:bg-orange-600 text-white">
+                    Sign In
+                  </Button>
+                </div>
+              ) : (
+                <StatusUpdateForm eventId={eventId} onSubmitted={handleStatusSubmitted} />
+              )}
             </TabsContent>
             <TabsContent value="feed" className="mt-5">
               <StatusFeed statuses={statuses} loading={statusesLoading} />
             </TabsContent>
             <TabsContent value="chat" className="mt-5">
-              <EventChatPanel eventId={eventId} />
+              {!currentUser ? (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-center space-y-3">
+                  <MessageCircle className="w-8 h-8 mx-auto text-zinc-600" />
+                  <p className="text-zinc-300 font-semibold">Sign in to join chat</p>
+                  <p className="text-zinc-500 text-xs">Join the live chat room for this event to coordinate with other attendees.</p>
+                  <Button onClick={() => base44.auth.redirectToLogin(window.location.pathname + window.location.search)} className="bg-orange-500 hover:bg-orange-600 text-white">
+                    Sign In
+                  </Button>
+                </div>
+              ) : (
+                <EventChatPanel eventId={eventId} />
+              )}
             </TabsContent>
           </Tabs>
         </div>

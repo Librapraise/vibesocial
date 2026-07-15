@@ -49,6 +49,8 @@ export interface UserRow {
   stripe_connect_id?: string;
   stripe_connect_status?: 'not_connected' | 'pending' | 'active';
   stripe_connect_details_submitted?: boolean;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
   created_at: string;
 }
 

@@ -276,6 +276,70 @@ router.post(
         .eq("stripe_payment_intent_id", pi.id);
     }
 
+    // --- Subscription Tier Handling ---
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+
+      // Only handle subscription purchases
+      if (session.mode === "subscription" && session.subscription) {
+        const userId = session.client_reference_id || session.metadata?.user_id;
+        
+        if (userId) {
+          // Retrieve the subscription details to identify the product/price
+          const subscription = await stripe.subscriptions.retrieve(
+            session.subscription as string
+          );
+          const priceId = subscription.items.data[0]?.price.id;
+          const productId = subscription.items.data[0]?.price.product as string;
+
+          // Check if this product matches Plus or VIP
+          const prodPlus = process.env.STRIPE_PRODUCT_PLUS;
+          const prodVip = process.env.STRIPE_PRODUCT_VIP;
+
+          let tier: "free" | "plus" | "vip" = "free";
+          if (productId === prodVip || priceId === prodVip) {
+            tier = "vip";
+          } else if (productId === prodPlus || priceId === prodPlus) {
+            tier = "plus";
+          }
+
+          if (tier !== "free") {
+            // Update the user's subscription tier and store the stripe IDs
+            await supabaseAdmin
+              .from("users")
+              .update({ 
+                subscription_tier: tier,
+                stripe_customer_id: session.customer as string,
+                stripe_subscription_id: session.subscription as string,
+                updated_at: new Date().toISOString()
+              })
+              .eq("id", userId);
+          }
+        }
+      }
+    }
+
+    if (event.type === "customer.subscription.deleted") {
+      const subscription = event.data.object as Stripe.Subscription;
+      const stripeCustomerId = subscription.customer as string;
+
+      // Find the user with this customer ID or email, and reset to free
+      const customer = await stripe.customers.retrieve(stripeCustomerId);
+      const email = (customer as Stripe.Customer).email;
+
+      if (email) {
+        await supabaseAdmin
+          .from("users")
+          .update({ 
+            subscription_tier: "free",
+            stripe_subscription_id: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq("email", email);
+      }
+    }
+
+
     res.json({ received: true });
   })
 );

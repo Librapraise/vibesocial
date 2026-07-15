@@ -316,4 +316,21 @@ export const base44Live = {
       return response.data as { url: string };
     },
   },
+  billing: {
+    /** Create subscription checkout session. Returns { url: string } */
+    createCheckout: async (priceId: string) => {
+      const response = await axiosInstance.post("/billing/checkout", { priceId });
+      return response.data as { url: string };
+    },
+    /** Create Stripe Customer Portal session. Returns { url: string } */
+    createPortal: async () => {
+      const response = await axiosInstance.post("/billing/portal");
+      return response.data as { url: string };
+    },
+    /** Cancel active subscription immediately or at period end. */
+    cancelSubscription: async () => {
+      const response = await axiosInstance.post("/billing/cancel");
+      return response.data as { success: boolean; message: string; cancel_at_period_end?: boolean };
+    },
+  },
 };

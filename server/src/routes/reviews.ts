@@ -68,6 +68,12 @@ router.post(
       .single();
 
     if (error) throw new AppError(error.message, 400);
+
+    // Increment points for review (+20 points)
+    const { data: userRecord } = await supabaseAdmin.from("users").select("points").eq("id", req.user!.id).single();
+    const newPoints = (userRecord?.points || 0) + 20;
+    await supabaseAdmin.from("users").update({ points: newPoints }).eq("id", req.user!.id);
+
     res.status(201).json(data);
   })
 );

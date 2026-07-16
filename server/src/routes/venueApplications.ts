@@ -184,6 +184,18 @@ router.put(
         `
       }).catch(err => console.error("Failed to send approval email:", err));
 
+      // Trigger user notification
+      try {
+        await supabaseAdmin.from("notifications").insert({
+          title: "Venue Approved! 🎉",
+          message: `Your venue application for ${existing.venue_name} has been approved!`,
+          target_type: "organizer",
+          link_url: "/OrganizerPortal",
+        });
+      } catch (err) {
+        console.error("Failed to create approval notification:", err);
+      }
+
     } else if (isRejecting) {
       // If rejected/brought down, demote user's role back to "attendee"
       await supabaseAdmin
@@ -208,6 +220,17 @@ router.put(
           <p>Best regards,<br/>The VibeSocial Team</p>
         `
       }).catch(err => console.error("Failed to send rejection email:", err));
+
+      // Trigger user notification
+      try {
+        await supabaseAdmin.from("notifications").insert({
+          title: "Venue Application Update",
+          message: `Your application for ${existing.venue_name} was declined: ${reason}`,
+          target_type: "all",
+        });
+      } catch (err) {
+        console.error("Failed to create rejection notification:", err);
+      }
     }
 
     res.json(data);

@@ -35,6 +35,7 @@ import UpcomingEvents from './pages/discover/UpcomingEvents';
 import VenueApplications from './pages/organizer/VenueApplications';
 import VenueDirectory from './pages/discover/VenueDirectory';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import Notifications from './pages/user/Notifications';
 
 
 export const pagesConfig = {
@@ -74,7 +75,8 @@ export const pagesConfig = {
     UpcomingEvents,
     VenueApplications,
     VenueDirectory,
-    AdminDashboard
+    AdminDashboard,
+    Notifications
   },
   Layout,
   mainPage: 'Landing'

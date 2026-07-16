@@ -288,4 +288,22 @@ router.post(
   })
 );
 
+/**
+ * GET /api/auth/leaderboard
+ * List top contributors by points
+ */
+router.get(
+  "/leaderboard",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select("id, name, avatar_url, points, role")
+      .order("points", { ascending: false })
+      .limit(50);
+
+    if (error) throw new AppError(error.message, 500);
+    res.json(data || []);
+  })
+);
+
 export default router;

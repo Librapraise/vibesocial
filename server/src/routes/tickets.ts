@@ -89,4 +89,40 @@ router.post(
   })
 );
 
+/**
+ * POST /api/tickets/scan
+ * Mark a ticket as used by its qr_code_data string (event organizer scanning at door)
+ */
+router.post(
+  "/scan",
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { qr_code_data } = req.body;
+    if (!qr_code_data) throw new AppError("qr_code_data is required", 400);
+
+    const { data: ticket, error } = await supabaseAdmin
+      .from("tickets")
+      .select("id, status, event_id, qr_code_data, events!event_id(title, created_by), ticket_types!ticket_type_id(name)")
+      .eq("qr_code_data", qr_code_data)
+      .single();
+
+    if (error || !ticket) throw new AppError("Ticket not found or invalid QR code", 404);
+
+    const eventCreatedBy = (ticket.events as any)?.created_by;
+    if (eventCreatedBy !== req.user!.id && req.user!.role !== "admin") {
+      throw new AppError("Only the event organizer can scan tickets", 403);
+    }
+
+    if (ticket.status === "used") {
+      return res.status(409).json({ error: "Ticket already used", status: "used", ticket });
+    }
+    if (ticket.status === "cancelled") {
+      return res.status(409).json({ error: "Ticket is cancelled", status: "cancelled", ticket });
+    }
+
+    await supabaseAdmin.from("tickets").update({ status: "used" }).eq("id", ticket.id);
+    res.json({ success: true, message: "Ticket validated successfully", ticket });
+  })
+);
+
 export default router;

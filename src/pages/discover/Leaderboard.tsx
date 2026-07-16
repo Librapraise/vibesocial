@@ -9,20 +9,12 @@ import { createPageUrl } from "@/utils";
 import EventCard from "@/components/events/EventCard";
 import { cn } from "@/lib/utils";
 
-type StatusItem = {
-  id: string;
-  reporter_name?: string;
-  vibe_score: number;
-};
-
 type EventData = {
   id: string;
   current_vibe_score?: number;
 };
 
-type Reporter = { name: string; count: number; topVibe: number };
-
-function ReporterRow({ reporter, rank }: { reporter: Reporter; rank: number }) {
+function LeaderboardUserRow({ user, rank }: { user: any; rank: number }) {
   const RankIcon = rank === 1 ? Crown : rank === 2 ? Medal : rank === 3 ? Award : null;
   return (
     <div
@@ -41,24 +33,33 @@ function ReporterRow({ reporter, rank }: { reporter: Reporter; rank: number }) {
       >
         {RankIcon ? <RankIcon className="w-4 h-4" /> : rank}
       </div>
-      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-600 to-orange-500 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
-        {(reporter.name || "?")[0].toUpperCase()}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-white font-semibold truncate">{reporter.name}</p>
-        <p className="text-zinc-500 text-xs">{reporter.count} status update{reporter.count !== 1 ? "s" : ""}</p>
-      </div>
-      {rank === 1 && (
-        <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 text-[10px]">Top Vibe Reporter</Badge>
+      {user.avatar_url ? (
+        <img src={user.avatar_url} alt={user.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-zinc-800" />
+      ) : (
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-600 to-orange-500 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+          {(user.name || "?")[0].toUpperCase()}
+        </div>
       )}
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-semibold truncate">{user.name || "Anonymous"}</p>
+        <p className="text-zinc-500 text-xs capitalize">{user.role || "Attendee"}</p>
+      </div>
+      <div className="text-right shrink-0">
+        <span className="text-sm font-black text-orange-450">{user.points || 0}</span>
+        <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">PTS</span>
+      </div>
     </div>
   );
 }
 
 export default function Leaderboard() {
-  const { data: statuses = [], isLoading: isLoadingStatuses } = useQuery<StatusItem[]>({
-    queryKey: ["allStatuses"],
-    queryFn: () => base44.entities.EventStatus.list("-created_date", 500),
+  const { data: leaderboardUsers = [], isLoading: isLoadingLeaderboard } = useQuery<any[]>({
+    queryKey: ["leaderboardPoints"],
+    queryFn: async () => {
+      const response = await fetch("http://localhost:5000/api/auth/leaderboard");
+      if (!response.ok) throw new Error("Failed to load leaderboard");
+      return response.json();
+    }
   });
 
   const { data: events = [], isLoading: isLoadingEvents } = useQuery<EventData[]>({
@@ -66,24 +67,12 @@ export default function Leaderboard() {
     queryFn: () => base44.entities.Event.filter({ is_active: true }, "-current_vibe_score", 12),
   });
 
-  // Aggregate reporters
-  const reporters = useMemo(() => {
-    const map: Record<string, Reporter> = {};
-    statuses.forEach((s) => {
-      const name = s.reporter_name || (s as any).users?.name || "Anonymous";
-      if (!map[name]) map[name] = { name, count: 0, topVibe: 0 };
-      map[name].count += 1;
-      if (s.vibe_score > map[name].topVibe) map[name].topVibe = s.vibe_score;
-    });
-    return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 10);
-  }, [statuses]);
-
   const topVibeEvents = useMemo(
     () => events.filter((e) => (e.current_vibe_score || 0) > 0).slice(0, 6),
     [events]
   );
 
-  const loading = isLoadingStatuses || isLoadingEvents;
+  const loading = isLoadingLeaderboard || isLoadingEvents;
 
   return (
     <div className="min-h-screen pb-20">
@@ -97,7 +86,7 @@ export default function Leaderboard() {
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Trophy className="w-6 h-6 text-orange-400" /> Leaderboard
           </h1>
-          <p className="text-zinc-500 text-sm mt-1">Top vibe reporters and the hottest events right now.</p>
+          <p className="text-zinc-500 text-sm mt-1">Top vibe contributors and the hottest events right now.</p>
         </div>
       </div>
 
@@ -113,16 +102,16 @@ export default function Leaderboard() {
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Trophy className="w-5 h-5 text-orange-400" />
-              <h2 className="text-lg font-bold text-white">Top Vibe Reporters</h2>
+              <h2 className="text-lg font-bold text-white">Top Vibe Contributors</h2>
             </div>
-            {reporters.length === 0 ? (
+            {leaderboardUsers.length === 0 ? (
               <div className="bg-zinc-900 border border-dashed border-zinc-800 rounded-2xl p-8 text-center text-zinc-500 text-sm">
-                No status updates yet. Be the first to drop a vibe!
+                No points earned yet. Be the first to earn rewards!
               </div>
             ) : (
               <div className="space-y-2">
-                {reporters.map((r, i) => (
-                  <ReporterRow key={r.name} reporter={r} rank={i + 1} />
+                {leaderboardUsers.map((u, i) => (
+                  <LeaderboardUserRow key={u.id} user={u} rank={i + 1} />
                 ))}
               </div>
             )}

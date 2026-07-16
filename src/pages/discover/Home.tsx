@@ -96,6 +96,129 @@ const US_STATES = [
   { value: "WY", label: "Wyoming" }
 ];
 
+import { useEffect, useRef } from "react";
+
+function VibeMap({ events }: { events: any[] }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const cssId = "leaflet-cdn-css";
+    if (!document.getElementById(cssId)) {
+      const link = document.createElement("link");
+      link.id = cssId;
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+    }
+
+    const scriptId = "leaflet-cdn-js";
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement("script");
+      script.id = scriptId;
+      script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      script.onload = initMap;
+      document.head.appendChild(script);
+    } else {
+      const interval = setInterval(() => {
+        if ((window as any).L) {
+          clearInterval(interval);
+          initMap();
+        }
+      }, 100);
+    }
+
+    let mapInstance: any = null;
+
+    function initMap() {
+      if (!mapRef.current) return;
+      const L = (window as any).L;
+      if (!L) return;
+
+      if (mapRef.current.innerHTML !== "") {
+        mapRef.current.innerHTML = "";
+      }
+
+      const activeEvents = events.filter((e) => e.lat && e.lng);
+      const centerLat = activeEvents[0]?.lat || 40.7128;
+      const centerLng = activeEvents[0]?.lng || -74.0060;
+
+      mapInstance = L.map(mapRef.current, {
+        center: [centerLat, centerLng],
+        zoom: 12,
+        zoomControl: false,
+      });
+
+      L.control.zoom({ position: "topright" }).addTo(mapInstance);
+
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: "abcd",
+        maxZoom: 20,
+      }).addTo(mapInstance);
+
+      activeEvents.forEach((e) => {
+        const score = Number(e.current_vibe_score || 0);
+        const color = score >= 7 ? "#f97316" : score >= 4 ? "#a855f7" : "#3b82f6";
+        const marker = L.circleMarker([e.lat, e.lng], {
+          radius: 10,
+          fillColor: color,
+          color: "#fff",
+          weight: 1.5,
+          opacity: 1,
+          fillOpacity: 0.8,
+        }).addTo(mapInstance);
+
+        const popupContent = `
+          <div style="color: #fafafa; font-family: sans-serif; padding: 4px; font-size: 12px; line-height: 1.4; width: 180px;">
+            <strong style="font-size: 13px; color: #fff; display: block; margin-bottom: 2px;">${e.title}</strong>
+            <span style="color: #a1a1aa; display: block; font-weight: 500; margin-bottom: 2px;">${e.venue_name}</span>
+            <span style="color: #71717a; font-size: 10px; display: block; margin-bottom: 8px;">${e.address}</span>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="background-color: ${color}20; color: ${color}; border: 1px solid ${color}40; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 9px; text-transform: uppercase;">
+                VIBE: ${score.toFixed(1)}
+              </span>
+              <a href="/EventDetail/${e.id}" style="color: #f97316; font-weight: bold; font-size: 10px; text-decoration: underline;">
+                View Details
+              </a>
+            </div>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent, {
+          className: "dark-popup",
+        });
+      });
+    }
+
+    return () => {
+      if (mapInstance) {
+        mapInstance.remove();
+      }
+    };
+  }, [events]);
+
+  return (
+    <div className="w-full h-[500px] rounded-2xl border border-zinc-800 overflow-hidden relative bg-zinc-950 z-0">
+      <div ref={mapRef} className="w-full h-full z-0" />
+      <style>{`
+        .leaflet-popup-content-wrapper {
+          background: #18181b !important;
+          border: 1px solid #27272a !important;
+          border-radius: 12px !important;
+        }
+        .leaflet-popup-tip {
+          background: #18181b !important;
+          border: 1px solid #27272a !important;
+        }
+        .leaflet-popup-close-button {
+          color: #71717a !important;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// Keep original code below...
 export default function Home() {
   useEventAlerts();
   const { user } = useAuth();
@@ -185,21 +308,23 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-            <div className="flex flex-col gap-2 pb-1 w-full lg:w-auto">
-              <div className="flex flex-wrap gap-2">
+          {/* Filters Panel */}
+          <div className="relative z-20 bg-zinc-900/30 border border-zinc-900/60 rounded-3xl p-5 space-y-4 max-w-5xl mx-auto backdrop-blur-sm shadow-xl">
+            {/* Top row: Categories and State Selection */}
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 border-b border-zinc-900/60 pb-4">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none select-none">
                 {venueFilters.map((f) => {
                   const Icon = f.icon;
+                  const isActive = venueFilter === f.value;
                   return (
                     <button
                       key={f.value}
                       onClick={() => setVenueFilter(f.value)}
                       className={cn(
-                        "flex items-center gap-1.5 flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all border",
-                        venueFilter === f.value
-                          ? "bg-white/10 border-white/20 text-white"
-                          : "bg-transparent border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
+                        "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border shrink-0",
+                        isActive
+                          ? "bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20"
+                          : "bg-zinc-950/40 border-zinc-800/80 text-zinc-400 hover:border-zinc-700 hover:text-white"
                       )}
                     >
                       <Icon className="w-3.5 h-3.5" />
@@ -208,69 +333,97 @@ export default function Home() {
                   );
                 })}
               </div>
-              <Select value={stateFilter} onValueChange={setStateFilter}>
-                <SelectTrigger className={cn(
-                  "h-[30px] px-3 rounded-full text-xs font-medium border w-auto gap-1 self-start",
-                  stateFilter !== "all"
-                    ? "bg-white/10 border-white/20 text-white"
-                    : "bg-transparent border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
-                )}>
-                  <MapPin className="w-3 h-3" />
-                  <SelectValue placeholder="All States" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800 text-white max-h-60">
-                  <div className="p-2 sticky top-0 bg-zinc-900 border-b border-zinc-800 z-10">
-                    <input
-                      type="text"
-                      placeholder="Search state..."
-                      value={stateSearch}
-                      onChange={(e) => setStateSearch(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-orange-500"
-                    />
-                  </div>
-                  <SelectItem value="all" className="text-zinc-300">All States</SelectItem>
-                  {filteredStates.map((s) => (
-                    <SelectItem key={s.value} value={s.value} className="text-zinc-300">{s.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+              <div className="shrink-0 flex items-center gap-2">
+                <span className="text-[10px] text-zinc-550 uppercase tracking-widest font-black">Region:</span>
+                <Select value={stateFilter} onValueChange={setStateFilter}>
+                  <SelectTrigger className={cn(
+                    "h-9 px-4 rounded-xl text-xs font-bold border w-36 gap-2 bg-zinc-950/40 border-zinc-800/80 text-zinc-300 hover:border-zinc-700 hover:text-white transition"
+                  )}>
+                    <MapPin className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                    <SelectValue placeholder="All States" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800 text-white max-h-60">
+                    <div className="p-2 sticky top-0 bg-zinc-900 border-b border-zinc-800 z-10">
+                      <input
+                        type="text"
+                        placeholder="Search state..."
+                        value={stateSearch}
+                        onChange={(e) => setStateSearch(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1.5 text-xs text-white placeholder-zinc-650 focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+                    <SelectItem value="all" className="text-zinc-300">All States</SelectItem>
+                    {filteredStates.map((s) => (
+                      <SelectItem key={s.value} value={s.value} className="text-zinc-300">{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-              <div className="flex bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 w-full sm:w-auto justify-between sm:justify-start">
-                {[
-                  { key: "vibe", label: "Top Vibes", icon: Flame, color: "text-orange-500", fill: "fill-orange-500/20" },
-                  { key: "trending", label: "Trending", icon: TrendingUp, color: "text-pink-500" },
-                  { key: "new", label: "New", icon: Clock, color: "text-purple-500" },
-                ].map((s) => {
-                  const isActive = sortBy === s.key;
-                  return (
-                    <button
-                      key={s.key}
-                      onClick={() => setSortBy(s.key)}
-                      className={cn(
-                        "flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
-                        isActive
-                          ? "bg-zinc-800 text-white shadow-sm"
-                          : "text-zinc-500 hover:text-zinc-300"
-                      )}
-                    >
-                      <s.icon 
-                        className={cn("w-3.5 h-3.5", isActive ? cn(s.color, s.fill) : "text-zinc-500")} 
-                        strokeWidth={2.2}
-                      />
-                      {s.label}
-                    </button>
-                  );
-                })}
+            {/* Bottom row: Sort, View mode, and Actions */}
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Sorting Segmented Control */}
+                <div className="flex bg-zinc-950/60 border border-zinc-850 rounded-xl p-0.5 w-full sm:w-auto">
+                  {[
+                    { key: "vibe", label: "Top Vibes", icon: Flame, color: "text-orange-500", fill: "fill-orange-500/20" },
+                    { key: "trending", label: "Trending", icon: TrendingUp, color: "text-pink-500" },
+                    { key: "new", label: "New", icon: Clock, color: "text-purple-500" },
+                  ].map((s) => {
+                    const isActive = sortBy === s.key;
+                    return (
+                      <button
+                        key={s.key}
+                        onClick={() => setSortBy(s.key)}
+                        className={cn(
+                          "flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
+                          isActive
+                            ? "bg-zinc-800 text-white shadow-sm"
+                            : "text-zinc-550 hover:text-zinc-300"
+                        )}
+                      >
+                        <s.icon 
+                          className={cn("w-3.5 h-3.5", isActive ? cn(s.color, s.fill) : "text-zinc-550")} 
+                          strokeWidth={2.2}
+                        />
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* View Mode Toggle: List / Map */}
+                <div className="flex bg-zinc-950/60 border border-zinc-850 rounded-xl p-0.5 h-9 shrink-0">
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className={cn(
+                      "px-3.5 rounded-lg text-[10px] uppercase font-black tracking-wider transition-all",
+                      viewMode === "list" ? "bg-zinc-800 text-white" : "text-zinc-550 hover:text-zinc-300"
+                    )}
+                  >
+                    List
+                  </button>
+                  <button
+                    onClick={() => setViewMode("map")}
+                    className={cn(
+                      "px-3.5 rounded-lg text-[10px] uppercase font-black tracking-wider transition-all",
+                      viewMode === "map" ? "bg-zinc-800 text-white" : "text-zinc-550 hover:text-zinc-300"
+                    )}
+                  >
+                    Map
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
-                <Link to={createPageUrl("MyCalendar")} className="flex-1 sm:flex-initial">
-                  <Button variant="ghost" className="w-full sm:w-auto text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-600 rounded-lg px-3 h-8 text-xs">
-                    <CalendarDays className="w-3.5 h-3.5 mr-1.5" /> My Calendar
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between sm:justify-start gap-2">
+                <Link to={createPageUrl("MyCalendar")}>
+                  <Button variant="ghost" className="text-zinc-400 hover:text-white border border-zinc-800 bg-zinc-950/20 hover:bg-zinc-900 rounded-xl px-3.5 h-9 text-xs font-bold transition">
+                    <CalendarDays className="w-3.5 h-3.5 mr-1.5 text-orange-400" /> My Calendar
                   </Button>
                 </Link>
                 <NotificationBell />
@@ -286,8 +439,12 @@ export default function Home() {
 
         {/* Map View */}
         {viewMode === "map" && (
-          <div className="mt-6">
-            <div className="text-zinc-500 text-sm">Map view coming soon</div>
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin className="w-5 h-5 text-orange-400" />
+              <h2 className="text-lg font-bold text-white">Vibe Map Hotspots</h2>
+            </div>
+            <VibeMap events={filteredEvents} />
           </div>
         )}
 

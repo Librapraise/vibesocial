@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, X, ExternalLink, Loader2 } from "lucide-react";
@@ -92,7 +93,7 @@ export default function NotificationBell() {
             </button>
 
             {open && (
-                <div className="absolute right-[-100px] md:right-0 top-10 w-80 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 top-11 w-80 max-w-[calc(100vw-2rem)] bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl z-50 overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
                         <span className="font-semibold text-sm text-white">Notifications</span>
                         <button onClick={() => setOpen(false)} className="text-zinc-500 hover:text-white">
@@ -145,6 +146,17 @@ export default function NotificationBell() {
                             })
                         )}
                     </div>
+                    {notifications.length > 0 && (
+                        <div className="p-2.5 bg-zinc-950 border-t border-zinc-850 text-center">
+                            <Link
+                                to={createPageUrl("Notifications")}
+                                onClick={() => setOpen(false)}
+                                className="text-xs text-orange-450 hover:text-orange-400 font-bold block py-1"
+                            >
+                                View All Notifications
+                            </Link>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

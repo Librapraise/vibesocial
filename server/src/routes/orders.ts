@@ -132,6 +132,26 @@ router.post(
         await supabaseAdmin.from("tickets").insert(ticketRows);
       }
 
+      // Trigger user notification
+      const { data: eventDetails } = await supabaseAdmin
+        .from("events")
+        .select("title")
+        .eq("id", event_id)
+        .single();
+
+      try {
+        await supabaseAdmin.from("notifications").insert({
+          title: "Tickets Confirmed! 🎫",
+          message: `Your tickets for ${eventDetails?.title || "VibeSocial Event"} are confirmed!`,
+          target_type: "all",
+          event_id,
+          event_title: eventDetails?.title,
+          link_url: "/MyTickets",
+        });
+      } catch (err) {
+        console.error("Free order notification failed:", err);
+      }
+
       return res.status(201).json({ order, payment_required: false });
     }
 
@@ -292,6 +312,20 @@ router.post(
             <p>Best regards,<br/>The VibeSocial Team</p>
           `
         }).catch(err => console.error("Failed to send ticket confirmation email:", err));
+
+        // Trigger user notification
+        try {
+          await supabaseAdmin.from("notifications").insert({
+            title: "Tickets Confirmed! 🎫",
+            message: `Your tickets for ${eventDetails?.title || "VibeSocial Event"} are confirmed!`,
+            target_type: "all",
+            event_id: order.event_id,
+            event_title: eventDetails?.title,
+            link_url: "/MyTickets",
+          });
+        } catch (err) {
+          console.error("Order notification failed:", err);
+        }
 
         // Check for low inventory warning
         for (const line of order.tickets) {

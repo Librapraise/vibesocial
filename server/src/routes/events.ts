@@ -5,8 +5,42 @@ import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { validate } from "../middleware/validate";
 import { z } from "zod";
 import { sendEmail } from "../services/emailService";
+import { calculateDecayedVibe } from "./statusUpdates";
 
 const router = Router();
+
+/**
+ * Utility to decay events vibe scores on-the-fly if they have not been updated for 2 hours.
+ */
+async function decayEventsIfStale(eventsList: any[]) {
+  const now = Date.now();
+  const twoHoursMs = 2 * 60 * 60 * 1000;
+  
+  for (const event of eventsList) {
+    const lastUpdate = new Date(event.updated_at || event.created_at).getTime();
+    if (now - lastUpdate >= twoHoursMs && Number(event.current_vibe_score) !== 5.0) {
+      const { data: recent } = await supabaseAdmin
+        .from("status_updates")
+        .select("vibe_score, crowd_level, wait_time, created_at")
+        .eq("event_id", event.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      const { avgScore, latestCrowd, latestWait } = calculateDecayedVibe(recent || [], 5.0);
+
+      await supabaseAdmin.from("events").update({
+        current_vibe_score: avgScore,
+        current_crowd_level: latestCrowd,
+        current_wait_time: latestWait,
+        updated_at: new Date().toISOString()
+      }).eq("id", event.id);
+
+      event.current_vibe_score = avgScore;
+      event.current_crowd_level = latestCrowd;
+      event.current_wait_time = latestWait;
+    }
+  }
+}
 
 // ─── Validation Schemas ───────────────────────────────────────────────────────
 
@@ -83,6 +117,10 @@ router.get(
     const { data, error } = await query;
     if (error) throw new AppError(error.message, 500);
 
+    if (data && data.length > 0) {
+      await decayEventsIfStale(data).catch(err => console.error("Event decay error:", err));
+    }
+
     res.json(data || []);
   })
 );
@@ -109,6 +147,8 @@ router.get(
       .single();
 
     if (error || !event) throw new AppError("Event not found", 404);
+
+    await decayEventsIfStale([event]).catch(err => console.error("Single event decay error:", err));
 
     // Limit status updates and reviews to latest 20
     const result = {

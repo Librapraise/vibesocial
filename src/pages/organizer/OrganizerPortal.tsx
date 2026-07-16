@@ -14,6 +14,9 @@ import {
   Settings,
   Megaphone,
   Crown,
+  QrCode,
+  AlertCircle,
+  CheckCircle,
 } from "lucide-react";
 import { createPageUrl, venueTypeIcons } from "@/utils";
 import { useAuth } from "@/lib/AuthContext";
@@ -60,6 +63,39 @@ export default function OrganizerPortal() {
   const [userLoading, setUserLoading] = useState<boolean>(!authUser);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  const [qrCodeInput, setQrCodeInput] = useState("");
+  const [scanResult, setScanResult] = useState<any>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+
+  const handleScanVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!qrCodeInput.trim()) return;
+    setScanning(true);
+    setScanResult(null);
+    setScanError(null);
+    try {
+      const response = await fetch("http://localhost:5000/api/tickets/scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
+        },
+        body: JSON.stringify({ qr_code_data: qrCodeInput.trim().toUpperCase() }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setScanError(data.error || "Failed to validate ticket");
+      } else {
+        setScanResult(data);
+        setQrCodeInput("");
+      }
+    } catch (err: any) {
+      setScanError(err?.message || "Connection error");
+    }
+    setScanning(false);
+  };
 
   useEffect(() => {
     if (authUser) {
@@ -285,6 +321,57 @@ export default function OrganizerPortal() {
                 <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-zinc-600" /></div>
               ) : (
                 <TicketTypeManager event={{ id: selectedEvent.id, title: selectedEvent.title }} />
+              )}
+            </section>
+
+            {/* Ticket scanning console */}
+            <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+                <QrCode className="w-5 h-5 text-orange-400" />
+                <div>
+                  <h3 className="text-base font-bold text-white">Ticket Verification Console</h3>
+                  <p className="text-zinc-550 text-xs mt-0.5">Scan or enter the attendee's ticket code string (e.g. VS-XXXX) to check them in.</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleScanVerify} className="flex gap-2">
+                <input
+                  value={qrCodeInput}
+                  onChange={(e) => setQrCodeInput(e.target.value)}
+                  placeholder="Enter Ticket QR Code (e.g. VS-1A2B3C)..."
+                  className="flex-1 bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-650 focus:outline-none focus:ring-1 focus:ring-orange-500/40"
+                />
+                <Button
+                  type="submit"
+                  disabled={scanning || !qrCodeInput.trim()}
+                  className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 rounded-xl h-11"
+                >
+                  {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify Code"}
+                </Button>
+              </form>
+
+              {scanError && (
+                <div className="bg-red-500/5 border border-red-500/10 p-3.5 rounded-xl text-xs text-red-400 flex items-start gap-2.5 animate-pulse">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block mb-0.5">Validation Failed</span>
+                    <span>{scanError}</span>
+                  </div>
+                </div>
+              )}
+
+              {scanResult && (
+                <div className="bg-emerald-500/5 border border-emerald-500/10 p-3.5 rounded-xl text-xs text-emerald-400 flex items-start gap-2.5">
+                  <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block mb-0.5">Ticket Confirmed!</span>
+                    <p className="text-zinc-300 mt-1">
+                      Event: <strong className="text-white">{scanResult.ticket?.events?.title}</strong><br/>
+                      Tier: <strong className="text-white">{scanResult.ticket?.ticket_types?.name}</strong><br/>
+                      Code: <strong className="text-white font-mono">{scanResult.ticket?.qr_code_data}</strong>
+                    </p>
+                  </div>
+                </div>
               )}
             </section>
 

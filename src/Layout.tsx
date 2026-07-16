@@ -20,7 +20,8 @@ import {
   Menu,
   ChevronRight,
   TrendingDown,
-  X
+  X,
+  Bell
 } from "lucide-react";
 
 export default function Layout({ children, currentPageName }: { children: React.ReactNode; currentPageName?: string }) {
@@ -39,6 +40,7 @@ export default function Layout({ children, currentPageName }: { children: React.
 
   const userLinks = [
     { name: "Profile", icon: User },
+    { name: "Notifications", label: "Notifications", icon: Bell },
     { name: "MyTickets", label: "My Tickets", icon: Ticket },
     { name: "MyCalendar", label: "My Calendar", icon: Calendar },
     { name: "MyReviews", label: "My Reviews", icon: Layers },

@@ -57,6 +57,9 @@ axiosInstance.interceptors.response.use(
       const refreshToken = localStorage.getItem("vibe_refresh_token");
       if (!refreshToken) {
         isRefreshing = false;
+        if (window.location.pathname !== "/Login" && window.location.pathname !== "/Register") {
+          window.location.href = "/Login";
+        }
         return Promise.reject(error);
       }
 
@@ -81,6 +84,9 @@ axiosInstance.interceptors.response.use(
         isRefreshing = false;
         localStorage.removeItem("vibe_token");
         localStorage.removeItem("vibe_refresh_token");
+        if (window.location.pathname !== "/Login" && window.location.pathname !== "/Register") {
+          window.location.href = "/Login";
+        }
         return Promise.reject(refreshError);
       }
     }

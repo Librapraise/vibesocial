@@ -316,4 +316,115 @@ router.delete(
   })
 );
 
+// ─── EVENT PROMO CODES (ORGANIZERS) ──────────────────────────────────────────
+
+router.get(
+  "/:id/promos",
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const { data: event } = await supabaseAdmin
+      .from("events")
+      .select("created_by")
+      .eq("id", id)
+      .single();
+
+    if (!event) throw new AppError("Event not found", 404);
+
+    if (event.created_by !== req.user!.id && req.user!.role !== "admin") {
+      throw new AppError("Access denied", 403);
+    }
+
+    const { data: promos, error } = await supabaseAdmin
+      .from("promo_codes")
+      .select("*")
+      .eq("event_id", id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw new AppError(error.message, 500);
+    res.json(promos || []);
+  })
+);
+
+router.post(
+  "/:id/promos",
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { code, discount_type, discount_value, max_uses, expires_at } = req.body;
+
+    if (!code || !discount_type || !discount_value) {
+      throw new AppError("Missing required promo fields", 400);
+    }
+
+    const { data: event } = await supabaseAdmin
+      .from("events")
+      .select("created_by")
+      .eq("id", id)
+      .single();
+
+    if (!event) throw new AppError("Event not found", 404);
+
+    if (event.created_by !== req.user!.id && req.user!.role !== "admin") {
+      throw new AppError("Access denied", 403);
+    }
+
+    const { data: promo, error } = await supabaseAdmin
+      .from("promo_codes")
+      .insert({
+        code: code.toUpperCase(),
+        discount_type,
+        discount_value,
+        max_uses: max_uses ? Number(max_uses) : null,
+        expires_at: expires_at || null,
+        is_active: true,
+        event_id: id
+      })
+      .select()
+      .single();
+
+    if (error) throw new AppError(error.message, 500);
+    res.json(promo);
+  })
+);
+
+router.delete(
+  "/:id/promos/:promoId",
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id, promoId } = req.params;
+
+    const { data: event } = await supabaseAdmin
+      .from("events")
+      .select("created_by")
+      .eq("id", id)
+      .single();
+
+    if (!event) throw new AppError("Event not found", 404);
+
+    if (event.created_by !== req.user!.id && req.user!.role !== "admin") {
+      throw new AppError("Access denied", 403);
+    }
+
+    const { data: promo } = await supabaseAdmin
+      .from("promo_codes")
+      .select("event_id")
+      .eq("id", promoId)
+      .maybeSingle();
+
+    if (!promo || promo.event_id !== id) {
+      throw new AppError("Promo code not found or mismatch", 404);
+    }
+
+    const { error } = await supabaseAdmin
+      .from("promo_codes")
+      .delete()
+      .eq("id", promoId);
+
+    if (error) throw new AppError(error.message, 500);
+    res.json({ success: true });
+  })
+);
+
 export default router;

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -52,6 +52,13 @@ import {
   BadgeCheck,
   ShieldAlert,
   Gem,
+  Ticket,
+  Settings,
+  Percent,
+  Terminal,
+  ArrowLeftRight,
+  HelpCircle,
+  Bell,
 } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 
@@ -62,11 +69,18 @@ type SidebarSection =
   | "users"
   | "events"
   | "orders"
+  | "finance"
   | "reviews"
   | "vibes"
   | "announcements"
   | "ai"
-  | "venue-applications";
+  | "venue-applications"
+  | "settings"
+  | "promos"
+  | "moderation"
+  | "transfers"
+  | "support"
+  | "logs";
 
 interface NavItem {
   id: SidebarSection;
@@ -81,11 +95,18 @@ const NAV_ITEMS: NavItem[] = [
   { id: "users", label: "Users", icon: Users, color: "text-blue-400", accent: "from-blue-500 to-cyan-500" },
   { id: "events", label: "Events", icon: CalendarDays, color: "text-emerald-400", accent: "from-emerald-500 to-teal-500" },
   { id: "orders", label: "Orders", icon: ShoppingCart, color: "text-amber-400", accent: "from-amber-500 to-yellow-500" },
+  { id: "finance", label: "Finance", icon: DollarSign, color: "text-yellow-400", accent: "from-yellow-500 to-amber-500" },
+  { id: "transfers", label: "Stripe Payouts", icon: ArrowLeftRight, color: "text-yellow-500", accent: "from-yellow-550 to-amber-550" },
   { id: "reviews", label: "Reviews", icon: Star, color: "text-pink-400", accent: "from-pink-500 to-rose-500" },
   { id: "vibes", label: "Vibe Updates", icon: Radio, color: "text-purple-400", accent: "from-purple-500 to-violet-500" },
+  { id: "moderation", label: "Moderation", icon: ShieldAlert, color: "text-red-400", accent: "from-red-500 to-orange-500" },
   { id: "venue-applications", label: "Venue Apps", icon: Building, color: "text-indigo-400", accent: "from-indigo-500 to-purple-500" },
   { id: "announcements", label: "Announcements", icon: Megaphone, color: "text-sky-400", accent: "from-sky-500 to-indigo-500" },
+  { id: "promos", label: "Promo Codes", icon: Percent, color: "text-teal-400", accent: "from-teal-500 to-emerald-500" },
   { id: "ai", label: "AI Audit", icon: Sparkles, color: "text-violet-400", accent: "from-violet-500 to-fuchsia-500" },
+  { id: "support", label: "Support Tickets", icon: HelpCircle, color: "text-orange-500", accent: "from-orange-550 to-pink-550" },
+  { id: "settings", label: "Settings", icon: Settings, color: "text-zinc-400", accent: "from-zinc-500 to-zinc-700" },
+  { id: "logs", label: "Server Logs", icon: Terminal, color: "text-red-400", accent: "from-zinc-700 to-zinc-900" },
 ];
 
 // ─── Reusable sub-components ─────────────────────────────────────────────────
@@ -163,6 +184,86 @@ const EmptyState = ({ message }: { message: string }) => (
   </div>
 );
 
+function AdminNotificationBell({ onNavigate }: { onNavigate: (section: SidebarSection) => void }) {
+  const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const { data: notifications = [], isLoading } = useQuery<any[]>({
+    queryKey: ["adminNotifications"],
+    queryFn: () => (base44 as any).admin.getNotifications(),
+    refetchInterval: 15_000,
+  });
+
+  const unreadCount = notifications.length;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={panelRef}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="relative flex items-center justify-center w-8 h-8 rounded-lg border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all animate-none"
+      >
+        <Bell className="w-3.5 h-3.5" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center animate-bounce">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 top-11 w-80 max-w-[calc(100vw-2rem)] bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+            <span className="font-semibold text-xs text-white">System Admin Alerts</span>
+            <button onClick={() => setOpen(false)} className="text-zinc-500 hover:text-white">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto divide-y divide-zinc-800/40">
+            {isLoading ? (
+              <div className="p-4 text-center text-xs text-zinc-500 flex items-center justify-center gap-1.5">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-500" />
+                Loading alerts...
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="p-8 text-center text-xs text-zinc-500">
+                All caught up! No pending alerts.
+              </div>
+            ) : (
+              notifications.map((n: any) => (
+                <button
+                  key={n.id}
+                  onClick={() => {
+                    onNavigate(n.link_section);
+                    setOpen(false);
+                  }}
+                  className="w-full text-left p-3.5 hover:bg-zinc-800/30 transition flex flex-col gap-1 border-l-2 border-l-transparent hover:border-l-orange-500"
+                >
+                  <span className="font-bold text-xs text-zinc-200">{n.title}</span>
+                  <span className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">{n.message}</span>
+                  <span className="text-[9px] text-zinc-650 mt-0.5">
+                    {new Date(n.created_date).toLocaleString()}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TableSkeleton = ({ rows = 5, cols = 4 }: { rows?: number; cols?: number }) => (
   <div className="space-y-3 p-4">
     {Array.from({ length: rows }).map((_, i) => (
@@ -189,9 +290,16 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const { user, logout } = useAuth();
 
-  const [activeSection, setActiveSection] = useState<SidebarSection>("overview");
+  const [activeSection, setActiveSection] = useState<SidebarSection>(() => {
+    const saved = localStorage.getItem("admin_dashboard_section");
+    return (saved as SidebarSection) || "overview";
+  });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("admin_dashboard_section", activeSection);
+  }, [activeSection]);
 
   // User management modal
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -258,6 +366,43 @@ export default function AdminDashboard() {
     enabled: activeSection === "venue-applications",
   });
 
+  const { data: transfers = [], isLoading: loadingTransfers, refetch: refetchTransfers } = useQuery({
+    queryKey: ["admin", "transfers"],
+    queryFn: () => (base44 as any).admin.getTransfers(),
+    enabled: activeSection === "transfers",
+  });
+
+  const { data: reports = [], isLoading: loadingReports, refetch: refetchReports } = useQuery({
+    queryKey: ["admin", "reports"],
+    queryFn: () => (base44 as any).admin.getReports(),
+    enabled: activeSection === "moderation",
+  });
+
+  const { data: settings = {}, isLoading: loadingSettings, refetch: refetchSettings } = useQuery({
+    queryKey: ["admin", "settings"],
+    queryFn: () => (base44 as any).admin.getSettings(),
+    enabled: activeSection === "settings",
+  });
+
+  const { data: promos = [], isLoading: loadingPromos, refetch: refetchPromos } = useQuery({
+    queryKey: ["admin", "promos"],
+    queryFn: () => (base44 as any).admin.getPromos(),
+    enabled: activeSection === "promos",
+  });
+
+  const { data: logs = [], isLoading: loadingLogs, refetch: refetchLogs } = useQuery({
+    queryKey: ["admin", "logs"],
+    queryFn: () => (base44 as any).admin.getLogs(),
+    enabled: activeSection === "logs",
+    refetchInterval: activeSection === "logs" ? 5000 : false,
+  });
+
+  const { data: supportTickets = [], isLoading: loadingSupportTickets, refetch: refetchSupportTickets } = useQuery({
+    queryKey: ["admin", "support-tickets"],
+    queryFn: () => (base44 as any).admin.getSupportTickets(),
+    enabled: activeSection === "support",
+  });
+
   const anyFetching =
     isFetchingStats ||
     (activeSection === "users" && isFetchingUsers) ||
@@ -311,6 +456,18 @@ export default function AdminDashboard() {
     },
   });
 
+  const updateSupportTicketStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "open" | "in_progress" | "resolved" }) =>
+      (base44 as any).admin.updateSupportTicketStatus(id, status),
+    onSuccess: () => {
+      refetchSupportTickets();
+      toast({ title: "🎫 Ticket Updated", description: "The ticket status was updated and the user notified." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to update ticket status.", variant: "destructive" });
+    },
+  });
+
   const approveVenueAppMutation = useMutation({
     mutationFn: (appId: string) => base44.entities.VenueApplication.update(appId, { status: "approved" }),
     onSuccess: () => {
@@ -327,6 +484,66 @@ export default function AdminDashboard() {
       toast({ title: "❌ Application Rejected", description: "The application has been rejected and the organizer notified." });
       setRejectingAppId(null);
       setRejectionReason("");
+    },
+  });
+
+  const retryTransferMutation = useMutation({
+    mutationFn: (data: { destination: string; amount: number; transferGroup?: string }) =>
+      (base44 as any).admin.retryTransfer(data),
+    onSuccess: () => {
+      refetchTransfers();
+      toast({ title: "✅ Transfer Initiated", description: "Stripe transfer was sent successfully." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to trigger transfer.", variant: "destructive" });
+    },
+  });
+
+  const actionReportMutation = useMutation({
+    mutationFn: ({ id, action }: { id: string; action: "resolve" | "dismiss" }) =>
+      (base44 as any).admin.actionReport(id, action),
+    onSuccess: () => {
+      refetchReports();
+      toast({ title: "✅ Report Actions Applied", description: "Content report processed successfully." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to process report.", variant: "destructive" });
+    },
+  });
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: (newSettings: any) =>
+      (base44 as any).admin.updateSettings(newSettings),
+    onSuccess: () => {
+      refetchSettings();
+      toast({ title: "✅ Settings Saved", description: "Global configuration updated successfully." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to update settings.", variant: "destructive" });
+    },
+  });
+
+  const createPromoMutation = useMutation({
+    mutationFn: (data: any) =>
+      (base44 as any).admin.createPromo(data),
+    onSuccess: () => {
+      refetchPromos();
+      toast({ title: "✅ Promo Code Created", description: "Code is now active." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to create promo code.", variant: "destructive" });
+    },
+  });
+
+  const deletePromoMutation = useMutation({
+    mutationFn: (id: string) =>
+      (base44 as any).admin.deletePromo(id),
+    onSuccess: () => {
+      refetchPromos();
+      toast({ title: "✅ Promo Code Deleted", description: "Code has been removed." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to delete promo code.", variant: "destructive" });
     },
   });
 
@@ -370,7 +587,7 @@ export default function AdminDashboard() {
   const handleRefresh = useCallback(() => {
     // Always refresh stats
     refetchStats();
-    
+
     // Refresh the currently active section's data
     if (activeSection === "users") {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -524,9 +741,8 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
     <div className="min-h-screen bg-zinc-950 flex text-zinc-100 font-sans">
       {/* ── Desktop Sidebar ── */}
       <aside
-        className={`hidden md:flex flex-col border-r border-zinc-800/60 bg-zinc-950 sticky top-0 h-screen z-30 shrink-0 transition-all duration-300 ${
-          sidebarOpen ? "w-56" : "w-[60px]"
-        }`}
+        className={`hidden md:flex flex-col border-r border-zinc-800/60 bg-zinc-950 sticky top-0 h-screen z-30 shrink-0 transition-all duration-300 ${sidebarOpen ? "w-56" : "w-[60px]"
+          }`}
       >
         <SidebarContent />
         {/* Collapse toggle */}
@@ -579,6 +795,7 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
           </div>
 
           <div className="ml-auto flex items-center gap-3">
+            <AdminNotificationBell onNavigate={setActiveSection} />
             <button
               onClick={handleRefresh}
               disabled={anyFetching}
@@ -665,6 +882,81 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
               </motion.div>
             )}
 
+            {/* ─────────────── FINANCE ─────────────── */}
+            {activeSection === "finance" && (
+              <motion.div key="finance" {...fadeUp} className="space-y-6">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard label="Gross Platform Volume" value={stats?.finance ? `$${Number(stats.totalRevenue).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"} icon={DollarSign} colorClass="text-yellow-400" glowClass="bg-yellow-500" sub={`From all successful charges`} isLoading={loadingStats} />
+                  <StatCard label="Ticket Sales Gross" value={stats?.finance ? `$${Number(stats.finance.ticketGross).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"} icon={Ticket} colorClass="text-orange-400" glowClass="bg-orange-500" sub={`90% to organizers`} isLoading={loadingStats} />
+                  <StatCard label="Subscription Revenue" value={stats?.finance ? `$${Number(stats.finance.subscriptionGross).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"} icon={Crown} colorClass="text-purple-400" glowClass="bg-purple-500" sub={`100% to platform`} isLoading={loadingStats} />
+                  <StatCard label="Platform Commissions + Fees" value={stats?.finance ? `$${Number(stats.finance.platformFeesCollected).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"} icon={Shield} colorClass="text-emerald-400" glowClass="bg-emerald-500" sub={`10% cut + $1.50 service fee`} isLoading={loadingStats} />
+                </div>
+
+                <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 space-y-5">
+                  <SectionHeader
+                    icon={BarChart3}
+                    title="Transaction Ledger"
+                    subtitle="List of all charges processed on Stripe Connect"
+                    colorClass="text-yellow-400"
+                  />
+
+                  <div className="overflow-x-auto rounded-xl border border-zinc-800/60">
+                    <table className="w-full text-sm">
+                      <thead className="bg-zinc-950/60 text-zinc-500 text-[11px] font-bold uppercase tracking-widest border-b border-zinc-800/60">
+                        <tr>
+                          <th className="px-5 py-3.5 text-left">Date</th>
+                          <th className="px-5 py-3.5 text-left">Transaction ID</th>
+                          <th className="px-5 py-3.5 text-left">Description</th>
+                          <th className="px-5 py-3.5 text-left">Type</th>
+                          <th className="px-5 py-3.5 text-left">Amount</th>
+                          <th className="px-5 py-3.5 text-left">Platform Share</th>
+                          <th className="px-5 py-3.5 text-left">Stripe Card Fee</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/40 text-zinc-300">
+                        {stats?.finance?.transactions && stats.finance.transactions.length > 0 ? (
+                          stats.finance.transactions.map((tx: any) => (
+                            <tr key={tx.id} className="hover:bg-zinc-800/20 transition-colors">
+                              <td className="px-5 py-4 whitespace-nowrap text-xs text-zinc-500">
+                                {new Date(tx.created).toLocaleString()}
+                              </td>
+                              <td className="px-5 py-4 font-mono text-[11px] text-zinc-400">
+                                {tx.id}
+                              </td>
+                              <td className="px-5 py-4 text-xs font-semibold text-zinc-200">
+                                {tx.description}
+                              </td>
+                              <td className="px-5 py-4 whitespace-nowrap">
+                                <Badge className={cn("text-[10px] uppercase font-bold tracking-wider", tx.type === "subscription" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-orange-500/10 text-orange-400 border-orange-500/20")}>
+                                  {tx.type}
+                                </Badge>
+                              </td>
+                              <td className="px-5 py-4 whitespace-nowrap text-xs font-bold text-zinc-100">
+                                ${tx.amount.toFixed(2)}
+                              </td>
+                              <td className="px-5 py-4 whitespace-nowrap text-xs font-bold text-emerald-400">
+                                ${tx.fee.toFixed(2)}
+                              </td>
+                              <td className="px-5 py-4 whitespace-nowrap text-xs text-zinc-500">
+                                ${tx.stripeFee.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={7} className="px-5 py-10 text-center text-zinc-500">
+                              No transactions recorded yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {/* ─────────────── USERS ─────────────── */}
             {activeSection === "users" && (
               <motion.div key="users" {...fadeUp} className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 space-y-5">
@@ -712,11 +1004,10 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                           >
                             <td className="px-5 py-3.5">
                               <div className="flex items-center gap-2.5">
-                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
-                                  u.role === "admin" ? "bg-gradient-to-br from-red-500/30 to-red-400/10 text-red-400" :
-                                  u.role === "organizer" ? "bg-gradient-to-br from-orange-500/30 to-orange-400/10 text-orange-400" :
-                                  "bg-zinc-700/60 text-zinc-300"
-                                }`}>
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${u.role === "admin" ? "bg-gradient-to-br from-red-500/30 to-red-400/10 text-red-400" :
+                                    u.role === "organizer" ? "bg-gradient-to-br from-orange-500/30 to-orange-400/10 text-orange-400" :
+                                      "bg-zinc-700/60 text-zinc-300"
+                                  }`}>
                                   {u.name?.[0]?.toUpperCase() || "?"}
                                 </div>
                                 <span className="font-semibold text-zinc-200 truncate max-w-[120px] group-hover:text-white transition">{u.name || "—"}</span>
@@ -728,8 +1019,8 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                                 u.role === "admin"
                                   ? "border-red-500/30 bg-red-500/5 text-red-400 text-[10px] font-bold uppercase tracking-wider"
                                   : u.role === "organizer"
-                                  ? "border-orange-500/30 bg-orange-500/5 text-orange-400 text-[10px] font-bold uppercase tracking-wider"
-                                  : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
+                                    ? "border-orange-500/30 bg-orange-500/5 text-orange-400 text-[10px] font-bold uppercase tracking-wider"
+                                    : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
                               }>
                                 {u.role}
                               </Badge>
@@ -739,8 +1030,8 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                                 u.subscription_tier === "vip"
                                   ? "border-violet-500/30 bg-violet-500/5 text-violet-400 text-[10px] font-bold uppercase tracking-wider"
                                   : u.subscription_tier === "plus"
-                                  ? "border-blue-500/30 bg-blue-500/5 text-blue-400 text-[10px] font-bold uppercase tracking-wider"
-                                  : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
+                                    ? "border-blue-500/30 bg-blue-500/5 text-blue-400 text-[10px] font-bold uppercase tracking-wider"
+                                    : "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
                               }>
                                 {u.subscription_tier === "vip" ? "👑 VIP" : u.subscription_tier === "plus" ? "⚡ Plus" : "Free"}
                               </Badge>
@@ -797,11 +1088,10 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                           <X className="w-4 h-4" />
                         </button>
                         <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black shadow-lg ${
-                            selectedUser.role === "admin" ? "bg-gradient-to-br from-red-500/40 to-red-400/20 text-red-300" :
-                            selectedUser.role === "organizer" ? "bg-gradient-to-br from-orange-500/40 to-orange-400/20 text-orange-300" :
-                            "bg-gradient-to-br from-zinc-600/60 to-zinc-700/40 text-zinc-200"
-                          }`}>
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black shadow-lg ${selectedUser.role === "admin" ? "bg-gradient-to-br from-red-500/40 to-red-400/20 text-red-300" :
+                              selectedUser.role === "organizer" ? "bg-gradient-to-br from-orange-500/40 to-orange-400/20 text-orange-300" :
+                                "bg-gradient-to-br from-zinc-600/60 to-zinc-700/40 text-zinc-200"
+                            }`}>
                             {selectedUser.name?.[0]?.toUpperCase() || "?"}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -823,15 +1113,15 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                         <div className="flex items-center gap-2 mt-4">
                           <Badge variant="outline" className={
                             selectedUser.role === "admin" ? "border-red-500/40 bg-red-500/10 text-red-400 text-[10px] font-bold uppercase tracking-wider" :
-                            selectedUser.role === "organizer" ? "border-orange-500/40 bg-orange-500/10 text-orange-400 text-[10px] font-bold uppercase tracking-wider" :
-                            "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
+                              selectedUser.role === "organizer" ? "border-orange-500/40 bg-orange-500/10 text-orange-400 text-[10px] font-bold uppercase tracking-wider" :
+                                "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
                           }>
                             {selectedUser.role === "admin" ? "🛡 Admin" : selectedUser.role === "organizer" ? "🏢 Organizer" : "👤 Attendee"}
                           </Badge>
                           <Badge variant="outline" className={
                             selectedUser.subscription_tier === "vip" ? "border-violet-500/40 bg-violet-500/10 text-violet-400 text-[10px] font-bold uppercase tracking-wider" :
-                            selectedUser.subscription_tier === "plus" ? "border-blue-500/40 bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase tracking-wider" :
-                            "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
+                              selectedUser.subscription_tier === "plus" ? "border-blue-500/40 bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase tracking-wider" :
+                                "border-zinc-700/40 bg-zinc-800/30 text-zinc-400 text-[10px] font-bold uppercase tracking-wider"
                           }>
                             {selectedUser.subscription_tier === "vip" ? "👑 VIP" : selectedUser.subscription_tier === "plus" ? "⚡ Plus" : "Free"}
                           </Badge>
@@ -983,7 +1273,7 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                       <AlertTriangle className="w-5 h-5 text-red-500" />
                       <h3 className="text-lg font-black text-white">Rejection Reason</h3>
                     </div>
-                    
+
                     <p className="text-zinc-400 text-xs leading-relaxed">
                       Please provide a clear explanation for rejecting or bringing down this venue. This reason will be saved and emailed directly to the applicant contact.
                     </p>
@@ -1159,8 +1449,8 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                                   o.status === "confirmed"
                                     ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400 text-[10px] font-bold uppercase tracking-wider"
                                     : o.status === "pending_payment"
-                                    ? "border-amber-500/30 bg-amber-500/5 text-amber-400 text-[10px] font-bold uppercase tracking-wider"
-                                    : "border-red-500/30 bg-red-500/5 text-red-400 text-[10px] font-bold uppercase tracking-wider"
+                                      ? "border-amber-500/30 bg-amber-500/5 text-amber-400 text-[10px] font-bold uppercase tracking-wider"
+                                      : "border-red-500/30 bg-red-500/5 text-red-400 text-[10px] font-bold uppercase tracking-wider"
                                 }
                               >
                                 {o.status}
@@ -1269,8 +1559,8 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                               <Badge variant="outline" className={cn(
                                 "text-[9px] font-black uppercase tracking-wider",
                                 app.status === "approved" ? "border-green-500/30 bg-green-500/5 text-green-400" :
-                                app.status === "rejected" ? "border-red-500/30 bg-red-500/5 text-red-400" :
-                                "border-amber-500/30 bg-amber-500/5 text-amber-400"
+                                  app.status === "rejected" ? "border-red-500/30 bg-red-500/5 text-red-400" :
+                                    "border-amber-500/30 bg-amber-500/5 text-amber-400"
                               )}>
                                 {app.status || "pending"}
                               </Badge>
@@ -1589,6 +1879,529 @@ Generate a concise executive summary identifying key concerns, anomalies, sentim
                           )
                         )}
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ─────────────── STRIPE PAYOUTS & TRANSFERS ─────────────── */}
+            {activeSection === "transfers" && (
+              <motion.div key="transfers" {...fadeUp} className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 space-y-6">
+                <SectionHeader
+                  icon={ArrowLeftRight}
+                  title="Stripe Connect Payouts & Transfers"
+                  subtitle="Verify split charges and re-transfer payout balances to event organizers"
+                  colorClass="text-yellow-500"
+                />
+
+                {loadingTransfers ? (
+                  <TableSkeleton rows={5} cols={5} />
+                ) : transfers.length === 0 ? (
+                  <EmptyState message="No Stripe Connect payouts or transfers recorded." />
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-zinc-800/60">
+                    <table className="w-full text-sm">
+                      <thead className="bg-zinc-950/60 text-zinc-500 text-[11px] font-bold uppercase tracking-widest border-b border-zinc-800/60">
+                        <tr>
+                          <th className="px-5 py-3.5 text-left">Date</th>
+                          <th className="px-5 py-3.5 text-left">Transfer ID</th>
+                          <th className="px-5 py-3.5 text-left">Organizer</th>
+                          <th className="px-5 py-3.5 text-left">Destination ID</th>
+                          <th className="px-5 py-3.5 text-left">Amount</th>
+                          <th className="px-5 py-3.5 text-center">Status</th>
+                          <th className="px-5 py-3.5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/40 text-zinc-300">
+                        {transfers.map((t: any) => (
+                          <tr key={t.id} className="hover:bg-zinc-800/20 transition-colors">
+                            <td className="px-5 py-4 whitespace-nowrap text-xs text-zinc-500">
+                              {new Date(t.created).toLocaleString()}
+                            </td>
+                            <td className="px-5 py-4 font-mono text-[11px] text-zinc-400">{t.id}</td>
+                            <td className="px-5 py-4">
+                              <div className="text-xs font-semibold text-zinc-200">{t.organizer.name}</div>
+                              <div className="text-[10px] text-zinc-500">{t.organizer.email}</div>
+                            </td>
+                            <td className="px-5 py-4 font-mono text-[11px] text-zinc-500">{t.destination}</td>
+                            <td className="px-5 py-4 whitespace-nowrap text-xs font-bold text-zinc-100">${Number(t.amount).toFixed(2)}</td>
+                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                              <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] uppercase font-bold tracking-wider">
+                                {t.status}
+                              </Badge>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-right text-xs">
+                              {t.status !== "succeeded" ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => retryTransferMutation.mutate({ destination: t.destination, amount: t.amount, transferGroup: t.transferGroup })}
+                                  disabled={retryTransferMutation.isPending}
+                                  className="text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 px-3 py-1.5 h-8 rounded-lg"
+                                >
+                                  Retry
+                                </Button>
+                              ) : (
+                                <span className="text-zinc-600 font-medium">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* ─────────────── SUPPORT TICKETS ─────────────── */}
+            {activeSection === "support" && (
+              <motion.div key="support" {...fadeUp} className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 space-y-6">
+                <SectionHeader
+                  icon={HelpCircle}
+                  title="User Support Tickets"
+                  subtitle="Review and resolve complaints, technical issues, or billing reports submitted by users"
+                  colorClass="text-orange-500"
+                />
+
+                {loadingSupportTickets ? (
+                  <TableSkeleton rows={5} cols={5} />
+                ) : supportTickets.length === 0 ? (
+                  <EmptyState message="No support tickets logged." />
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-zinc-800/60">
+                    <table className="w-full text-sm">
+                      <thead className="bg-zinc-950/60 text-zinc-500 text-[11px] font-bold uppercase tracking-widest border-b border-zinc-800/60">
+                        <tr>
+                          <th className="px-5 py-3.5 text-left">Date</th>
+                          <th className="px-5 py-3.5 text-left">User</th>
+                          <th className="px-5 py-3.5 text-left">Category</th>
+                          <th className="px-5 py-3.5 text-left">Subject & Message</th>
+                          <th className="px-5 py-3.5 text-center">Status</th>
+                          <th className="px-5 py-3.5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/40 text-zinc-300">
+                        {supportTickets.map((t: any) => (
+                          <tr key={t.id} className="hover:bg-zinc-800/20 transition-colors">
+                            <td className="px-5 py-4 whitespace-nowrap text-xs text-zinc-500">
+                              {new Date(t.created_at).toLocaleString()}
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="text-xs font-semibold text-zinc-200">{t.users?.name || "Anonymous"}</div>
+                              <div className="text-[10px] text-zinc-500">{t.users?.email || "N/A"}</div>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-xs font-bold text-orange-400">
+                              {t.category}
+                            </td>
+                            <td className="px-5 py-4 max-w-md">
+                              <div className="text-xs font-semibold text-zinc-200">{t.subject}</div>
+                              <div className="text-[11px] text-zinc-500 mt-1 whitespace-pre-wrap">{t.message}</div>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                              <Badge className={cn("text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 border rounded-full",
+                                t.status === "open" ? "bg-red-500/10 text-red-400 border-red-500/20" :
+                                  t.status === "in_progress" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
+                                    "bg-green-500/10 text-green-400 border-green-500/20"
+                              )}>
+                                {t.status}
+                              </Badge>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-right text-xs space-x-1">
+                              {t.status !== "resolved" && (
+                                <>
+                                  {t.status === "open" && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => updateSupportTicketStatusMutation.mutate({ id: t.id, status: "in_progress" })}
+                                      disabled={updateSupportTicketStatusMutation.isPending}
+                                      className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-2.5 py-1 text-[10px] h-7 rounded-lg"
+                                    >
+                                      Investigate
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    onClick={() => updateSupportTicketStatusMutation.mutate({ id: t.id, status: "resolved" })}
+                                    disabled={updateSupportTicketStatusMutation.isPending}
+                                    className="bg-green-600 hover:bg-green-700 text-white font-bold px-2.5 py-1 text-[10px] h-7 rounded-lg"
+                                  >
+                                    Resolve
+                                  </Button>
+                                </>
+                              )}
+                              {t.status === "resolved" && <span className="text-zinc-600 text-xs font-medium">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* ─────────────── CONTENT MODERATION ─────────────── */}
+            {activeSection === "moderation" && (
+              <motion.div key="moderation" {...fadeUp} className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 space-y-6">
+                <SectionHeader
+                  icon={ShieldAlert}
+                  title="Content Moderation & Reports"
+                  subtitle="Review content flagged by community attendees for violating terms"
+                  colorClass="text-red-400"
+                />
+
+                {loadingReports ? (
+                  <TableSkeleton rows={5} cols={5} />
+                ) : reports.length === 0 ? (
+                  <EmptyState message="All clear! No pending content moderation reports." />
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-zinc-800/60">
+                    <table className="w-full text-sm">
+                      <thead className="bg-zinc-950/60 text-zinc-500 text-[11px] font-bold uppercase tracking-widest border-b border-zinc-800/60">
+                        <tr>
+                          <th className="px-5 py-3.5 text-left">Date</th>
+                          <th className="px-5 py-3.5 text-left">Reporter</th>
+                          <th className="px-5 py-3.5 text-left">Item Type</th>
+                          <th className="px-5 py-3.5 text-left">Reason</th>
+                          <th className="px-5 py-3.5 text-center">Status</th>
+                          <th className="px-5 py-3.5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/40 text-zinc-300">
+                        {reports.map((r: any) => (
+                          <tr key={r.id} className="hover:bg-zinc-800/20 transition-colors">
+                            <td className="px-5 py-4 whitespace-nowrap text-xs text-zinc-500">
+                              {new Date(r.created_at).toLocaleString()}
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="text-xs font-semibold text-zinc-200">{r.users?.name || "Anonymous"}</div>
+                              <div className="text-[10px] text-zinc-500">{r.users?.email || "N/A"}</div>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              <Badge className="bg-zinc-800 text-zinc-300 border-zinc-700 text-[10px] uppercase font-bold tracking-wider">
+                                {r.entity_type}
+                              </Badge>
+                            </td>
+                            <td className="px-5 py-4 text-xs text-zinc-300">{r.reason}</td>
+                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                              <Badge className={`text-[10px] uppercase font-bold tracking-wider ${r.status === "pending" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                }`}>
+                                {r.status}
+                              </Badge>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-right space-x-2 text-xs">
+                              {r.status === "pending" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => actionReportMutation.mutate({ id: r.id, action: "resolve" })}
+                                    disabled={actionReportMutation.isPending}
+                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1.5 h-8 rounded-lg"
+                                  >
+                                    Remove Content
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => actionReportMutation.mutate({ id: r.id, action: "dismiss" })}
+                                    disabled={actionReportMutation.isPending}
+                                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 h-8 rounded-lg"
+                                  >
+                                    Dismiss
+                                  </Button>
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* ─────────────── PLATFORM SETTINGS ─────────────── */}
+            {activeSection === "settings" && (
+              <motion.div key="settings" {...fadeUp} className="max-w-2xl mx-auto bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 space-y-6">
+                <SectionHeader
+                  icon={Settings}
+                  title="Global Platform Settings"
+                  subtitle="Adjust global transactional splits, service charges, and system state flags"
+                  colorClass="text-zinc-400"
+                />
+
+                {loadingSettings ? (
+                  <TableSkeleton rows={3} cols={2} />
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const form = e.currentTarget;
+                      const formData = new FormData(form);
+                      updateSettingsMutation.mutate({
+                        PLATFORM_FEE_PERCENT: formData.get("PLATFORM_FEE_PERCENT"),
+                        SERVICE_FEE_CENTS: formData.get("SERVICE_FEE_CENTS"),
+                        MAINTENANCE_MODE: formData.get("MAINTENANCE_MODE") === "on" ? "true" : "false",
+                      });
+                    }}
+                    className="space-y-5"
+                  >
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Platform Commission Fee (%)</label>
+                      <Input
+                        name="PLATFORM_FEE_PERCENT"
+                        type="number"
+                        min="0"
+                        max="100"
+                        defaultValue={settings.PLATFORM_FEE_PERCENT || "10"}
+                        required
+                        className="bg-zinc-950/60 border-zinc-800 text-white rounded-xl placeholder:text-zinc-600 focus-visible:ring-zinc-500/30"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Ticket Service Fee (Cents)</label>
+                      <Input
+                        name="SERVICE_FEE_CENTS"
+                        type="number"
+                        min="0"
+                        defaultValue={settings.SERVICE_FEE_CENTS || "150"}
+                        required
+                        className="bg-zinc-950/60 border-zinc-800 text-white rounded-xl placeholder:text-zinc-600 focus-visible:ring-zinc-500/30"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-zinc-950/40 border border-zinc-800/60 rounded-xl">
+                      <div>
+                        <div className="text-xs font-bold text-zinc-200">Global Maintenance Mode</div>
+                        <div className="text-[10px] text-zinc-500 mt-0.5">Locks attendee logins and presents a static offline notification screen</div>
+                      </div>
+                      <input
+                        name="MAINTENANCE_MODE"
+                        type="checkbox"
+                        defaultChecked={settings.MAINTENANCE_MODE === "true"}
+                        className="w-4 h-4 rounded border-zinc-800 text-purple-600 focus:ring-purple-500/30 bg-zinc-950"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={updateSettingsMutation.isPending}
+                      className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold h-11 rounded-xl shadow-lg flex items-center justify-center gap-2"
+                    >
+                      {updateSettingsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Save Configurations
+                    </Button>
+                  </form>
+                )}
+              </motion.div>
+            )}
+
+            {/* ─────────────── PROMO CODES ─────────────── */}
+            {activeSection === "promos" && (
+              <motion.div key="promos" {...fadeUp} className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-zinc-800/60">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-zinc-800/80 flex items-center justify-center text-teal-400">
+                      <Percent className="w-4.5 h-4.5" />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-zinc-100 text-lg leading-none">Promotion & Discount Codes</h2>
+                      <p className="text-zinc-500 text-xs mt-1">Configure coupons and promotional rates for event ticket checkout</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Creation Form */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const form = e.currentTarget;
+                      const formData = new FormData(form);
+                      createPromoMutation.mutate({
+                        code: formData.get("code"),
+                        discount_type: formData.get("discount_type"),
+                        discount_value: parseFloat(formData.get("discount_value") as string),
+                        max_uses: formData.get("max_uses") ? parseInt(formData.get("max_uses") as string) : null,
+                        expires_at: formData.get("expires_at") || null,
+                        event_id: formData.get("event_id") || null,
+                      }, {
+                        onSuccess: () => form.reset()
+                      });
+                    }}
+                    className="bg-zinc-950/40 border border-zinc-800/60 rounded-xl p-5 space-y-4"
+                  >
+                    <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">Create New Promo</h3>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Promo Code</label>
+                      <Input
+                        name="code"
+                        placeholder="e.g. SUMMER10"
+                        required
+                        className="bg-zinc-950/60 border-zinc-800 text-white rounded-xl placeholder:text-zinc-600 focus-visible:ring-teal-500/30"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Discount Type</label>
+                      <select
+                        name="discount_type"
+                        required
+                        className="w-full bg-zinc-950/60 border border-zinc-800 text-white rounded-xl p-2.5 text-sm outline-none focus:ring-1 focus:ring-teal-500/30 transition"
+                      >
+                        <option value="percentage">Percentage (%)</option>
+                        <option value="fixed">Fixed Amount ($)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Discount Value</label>
+                      <Input
+                        name="discount_value"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        required
+                        className="bg-zinc-950/60 border-zinc-800 text-white rounded-xl placeholder:text-zinc-600 focus-visible:ring-teal-500/30"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Max Uses (Optional)</label>
+                      <Input
+                        name="max_uses"
+                        type="number"
+                        min="1"
+                        className="bg-zinc-950/60 border-zinc-800 text-white rounded-xl placeholder:text-zinc-600 focus-visible:ring-teal-500/30"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Event ID (Optional - Null for Global)</label>
+                      <Input
+                        name="event_id"
+                        placeholder="e.g. event uuid"
+                        className="bg-zinc-950/60 border-zinc-800 text-white rounded-xl placeholder:text-zinc-600 focus-visible:ring-teal-500/30"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={createPromoMutation.isPending}
+                      className="w-full bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/20 font-bold h-11 rounded-xl flex items-center justify-center gap-2"
+                    >
+                      {createPromoMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Activate Promo Code
+                    </Button>
+                  </form>
+
+                  {/* List / Table */}
+                  <div className="lg:col-span-2">
+                    {loadingPromos ? (
+                      <TableSkeleton rows={4} cols={4} />
+                    ) : promos.length === 0 ? (
+                      <EmptyState message="No promo codes are currently configured." />
+                    ) : (
+                      <div className="overflow-x-auto rounded-xl border border-zinc-800/60">
+                        <table className="w-full text-sm">
+                          <thead className="bg-zinc-950/60 text-zinc-500 text-[11px] font-bold uppercase tracking-widest border-b border-zinc-800/60">
+                            <tr>
+                              <th className="px-5 py-3.5 text-left">Code</th>
+                              <th className="px-5 py-3.5 text-left">Discount</th>
+                              <th className="px-5 py-3.5 text-left">Uses</th>
+                              <th className="px-5 py-3.5 text-left">Event Limit</th>
+                              <th className="px-5 py-3.5 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-800/40 text-zinc-300">
+                            {promos.map((p: any) => (
+                              <tr key={p.id} className="hover:bg-zinc-800/20 transition-colors">
+                                <td className="px-5 py-4 font-mono text-xs font-bold text-teal-400">{p.code}</td>
+                                <td className="px-5 py-4 text-xs font-semibold text-zinc-200">
+                                  {p.discount_type === "percentage" ? `${p.discount_value}%` : `$${p.discount_value}`}
+                                </td>
+                                <td className="px-5 py-4 text-xs text-zinc-400">
+                                  {p.used_count} / {p.max_uses || "∞"}
+                                </td>
+                                <td className="px-5 py-4 text-xs text-zinc-500 truncate max-w-[120px]">
+                                  {p.event_id ? `Event: ${p.event_id.slice(0, 8)}...` : "Global (All)"}
+                                </td>
+                                <td className="px-5 py-4 whitespace-nowrap text-right text-xs">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => deletePromoMutation.mutate(p.id)}
+                                    disabled={deletePromoMutation.isPending}
+                                    className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10 p-2 h-8 rounded-lg"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ─────────────── SERVER LOGS ─────────────── */}
+            {activeSection === "logs" && (
+              <motion.div key="logs" {...fadeUp} className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 space-y-6">
+                <SectionHeader
+                  icon={Terminal}
+                  title="Live Server Health & Output Logs"
+                  subtitle="Review raw Express application environment logs and exceptions in real time"
+                  colorClass="text-red-400"
+                  action={
+                    <Button
+                      size="sm"
+                      onClick={() => refetchLogs()}
+                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center gap-1.5 px-3 py-1.5 h-8 rounded-lg"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Force Refresh
+                    </Button>
+                  }
+                />
+
+                <div className="flex flex-col min-h-[420px]">
+                  <div className="flex items-center justify-between bg-zinc-950 px-4 py-2 border-t border-x border-zinc-800 rounded-t-xl text-xs font-mono text-zinc-500">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                    </div>
+                    <span>vibe_server_logs.log</span>
+                    <Terminal className="w-3.5 h-3.5 text-zinc-600" />
+                  </div>
+
+                  <div className="flex-1 bg-black border border-zinc-800 p-5 font-mono text-xs text-zinc-400 rounded-b-xl relative overflow-y-auto leading-relaxed max-h-[500px]">
+                    <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[size:100%_4px,6px_100%] opacity-25" />
+
+                    <div className="space-y-1 relative z-10">
+                      {logs.length === 0 ? (
+                        <p className="text-zinc-600">&gt; Waiting for server outputs...</p>
+                      ) : (
+                        logs.map((log: string, idx: number) => {
+                          let color = "text-zinc-400";
+                          if (log.includes("ERROR:")) color = "text-red-400 font-bold";
+                          else if (log.includes("WARN:")) color = "text-yellow-400 font-bold";
+                          else if (log.includes("POST") || log.includes("GET")) color = "text-emerald-400";
+
+                          return (
+                            <p key={idx} className={color}>
+                              &gt; {log}
+                            </p>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 </div>

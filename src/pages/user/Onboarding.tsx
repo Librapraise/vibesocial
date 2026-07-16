@@ -16,7 +16,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Check,
-  Zap
+  Zap,
+  Camera
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,25 @@ export default function Onboarding() {
   const [name, setName] = useState(authUser?.name || "");
   const [bio, setBio] = useState("");
   const [saving, setSaving] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(authUser?.avatar_url || "");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const res = await base44.integrations.Core.UploadFile({ file });
+      if (res && res.file_url) {
+        setAvatarUrl(res.file_url);
+        toast({ title: "Avatar Uploaded", description: "Profile photo uploaded successfully." });
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   // Permission states
   const [locationGranted, setLocationGranted] = useState(false);
@@ -107,6 +127,7 @@ export default function Onboarding() {
       const updates = {
         name: name.trim() || authUser?.name,
         bio: bio.trim(),
+        avatar_url: avatarUrl,
         vibe_preferences: selectedTags,
         notification_settings: {
           push_enabled: pushGranted,
@@ -212,6 +233,26 @@ export default function Onboarding() {
             </div>
 
             <div className="space-y-4">
+              <div className="flex flex-col items-center gap-3 pb-2">
+                <div className="relative group w-20 h-20 rounded-full border-2 border-zinc-800 overflow-hidden bg-zinc-950 flex items-center justify-center">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <UserCircle className="w-12 h-12 text-zinc-600" />
+                  )}
+                  {uploadingAvatar && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <Loader2 className="w-5 h-5 animate-spin text-orange-400" />
+                    </div>
+                  )}
+                </div>
+                <label className="text-xs font-bold text-orange-400 hover:text-orange-350 cursor-pointer flex items-center gap-1.5 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 px-3 py-1.5 rounded-xl transition">
+                  <Camera className="w-3.5 h-3.5" />
+                  {avatarUrl ? "Change Photo" : "Upload Photo"}
+                  <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                </label>
+              </div>
+
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Display Name</Label>
                 <Input

@@ -45,6 +45,7 @@ export default function Layout({ children, currentPageName }: { children: React.
     { name: "MyCalendar", label: "My Calendar", icon: Calendar },
     { name: "MyReviews", label: "My Reviews", icon: Layers },
     { name: "Settings", icon: Settings },
+    { name: "ContactSupport", label: "Contact Support", icon: HelpCircle },
   ];
 
   const organizerLinks = [
@@ -258,9 +259,13 @@ export default function Layout({ children, currentPageName }: { children: React.
         {user && (
           <div className="p-4 border-t border-zinc-900/50 flex items-center justify-between gap-2 bg-zinc-950/20">
             <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-orange-400">
-                {user.name?.[0] || "U"}
-              </div>
+              <Link to={createPageUrl("Profile")} className="w-9 h-9 rounded-full overflow-hidden bg-zinc-850 border border-zinc-800/80 flex items-center justify-center font-bold text-orange-400 shrink-0 hover:border-zinc-700 transition">
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt={user.name || "User"} className="w-full h-full object-cover" />
+                ) : (
+                  user.name?.[0] || "U"
+                )}
+              </Link>
               <div className="flex flex-col truncate">
                 <span className="text-xs font-semibold text-zinc-200 truncate">{user.name}</span>
                 <span className="text-[10px] text-zinc-500 truncate">{user.email}</span>
@@ -304,11 +309,15 @@ export default function Layout({ children, currentPageName }: { children: React.
           <div className="flex items-center gap-3">
             {/* Quick Profile display */}
             {user && (
-              <div className="flex items-center gap-2 md:hidden">
-                <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-orange-400 text-xs">
-                  {user.name?.[0] || "U"}
+              <Link to={createPageUrl("Profile")} className="flex items-center gap-2 md:hidden">
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-850 border border-zinc-800 flex items-center justify-center font-bold text-orange-400 text-xs shrink-0">
+                  {user.avatar_url ? (
+                    <img src={user.avatar_url} alt={user.name || "User"} className="w-full h-full object-cover" />
+                  ) : (
+                    user.name?.[0] || "U"
+                  )}
                 </div>
-              </div>
+              </Link>
             )}
           </div>
         </header>
@@ -544,9 +553,13 @@ export default function Layout({ children, currentPageName }: { children: React.
         {user && (
           <div className="p-4 border-t border-zinc-900/50 flex items-center justify-between gap-2 bg-zinc-950/20">
             <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-orange-400">
-                {user.name?.[0] || "U"}
-              </div>
+              <Link to={createPageUrl("Profile")} className="w-9 h-9 rounded-full overflow-hidden bg-zinc-850 border border-zinc-800/80 flex items-center justify-center font-bold text-orange-400 shrink-0 hover:border-zinc-700 transition">
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt={user.name || "User"} className="w-full h-full object-cover" />
+                ) : (
+                  user.name?.[0] || "U"
+                )}
+              </Link>
               <div className="flex flex-col truncate">
                 <span className="text-xs font-semibold text-zinc-200 truncate">{user.name}</span>
                 <span className="text-[10px] text-zinc-500 truncate">{user.email}</span>

@@ -46,8 +46,8 @@ export default function StripeConnectCard() {
     try {
       const origin = window.location.origin;
       const { url } = await base44Live.stripeConnect.onboard(
-        `${origin}/organizer?stripe_return=1`,
-        `${origin}/organizer?stripe_refresh=1`
+        `${origin}/OrganizerPortal?stripe_return=1`,
+        `${origin}/OrganizerPortal?stripe_refresh=1`
       );
       // Redirect to Stripe's hosted onboarding form
       window.location.href = url;
@@ -106,17 +106,35 @@ export default function StripeConnectCard() {
             <Loader2 className="w-4 h-4 animate-spin" />
             <span>Checking account status…</span>
           </div>
-        )}
-
-        {status === "not_connected" && (
+        )}        {status === "not_connected" && (
           <>
             <p className="text-zinc-400 text-sm leading-relaxed">
               Connect your Stripe account to receive automatic payouts when
               attendees purchase your event tickets. VibeSocial keeps a{" "}
-              <span className="text-orange-400 font-semibold">10% platform fee</span>{" "}
-              — the rest goes directly to your bank.
+              <span className="text-orange-400 font-semibold">10% platform fee</span>, and standard Stripe card processing fees are covered by you.
             </p>
-            <ul className="space-y-1.5 text-xs text-zinc-500">
+            
+            <div className="bg-zinc-950/40 rounded-xl p-3.5 border border-zinc-800/60 text-xs text-zinc-500 space-y-2">
+              <span className="font-bold text-zinc-400 block uppercase tracking-wider text-[10px]">Payout Fee Example ($100 Ticket):</span>
+              <div className="flex justify-between">
+                <span>Ticket Price:</span>
+                <span className="text-zinc-300 font-medium">$100.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Platform Commission (10%):</span>
+                <span className="text-orange-400">-$10.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Stripe Card Fee (2.9% + 30¢):</span>
+                <span className="text-zinc-400">-$3.20</span>
+              </div>
+              <div className="border-t border-zinc-800/60 pt-1.5 flex justify-between text-zinc-300 font-bold">
+                <span>Your Payout Net:</span>
+                <span className="text-emerald-400">$86.80</span>
+              </div>
+            </div>
+
+            <ul className="space-y-1.5 text-xs text-zinc-500 pt-1">
               <li className="flex items-center gap-2">
                 <DollarSign className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
                 Instant split on every ticket sale
@@ -145,7 +163,7 @@ export default function StripeConnectCard() {
             </Button>
           </>
         )}
-
+ 
         {status === "pending" && (
           <>
             <p className="text-zinc-400 text-sm leading-relaxed">
@@ -167,14 +185,33 @@ export default function StripeConnectCard() {
             </Button>
           </>
         )}
-
+ 
         {status === "active" && (
           <>
             <p className="text-zinc-400 text-sm leading-relaxed">
-              Your Stripe account is active. Ticket sales for your events are
-              automatically split — <span className="text-emerald-400 font-semibold">90%</span> to
-              you and <span className="text-orange-400 font-semibold">10%</span> to VibeSocial.
+              Your Stripe account is active. Payouts are automatically split — VibeSocial collects <span className="text-orange-400 font-semibold">10%</span>, and Stripe card fees are deducted from your balance.
             </p>
+            
+            <div className="bg-zinc-950/40 rounded-xl p-3.5 border border-zinc-800/60 text-xs text-zinc-500 space-y-2">
+              <span className="font-bold text-zinc-400 block uppercase tracking-wider text-[10px]">Payout Fee Example ($100 Ticket):</span>
+              <div className="flex justify-between">
+                <span>Ticket Price:</span>
+                <span className="text-zinc-300 font-medium">$100.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Platform Commission (10%):</span>
+                <span className="text-orange-400">-$10.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Stripe Card Fee (2.9% + 30¢):</span>
+                <span className="text-zinc-400">-$3.20</span>
+              </div>
+              <div className="border-t border-zinc-800/60 pt-1.5 flex justify-between text-zinc-300 font-bold">
+                <span>Your Payout Net:</span>
+                <span className="text-emerald-400">$86.80</span>
+              </div>
+            </div>
+
             {details && (
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-zinc-800/60 rounded-lg px-3 py-2">

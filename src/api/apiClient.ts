@@ -282,6 +282,58 @@ export const base44Live = {
       const response = await axiosInstance.delete(`/admin/status-updates/${statusId}`);
       return response.data;
     },
+    getTransfers: async () => {
+      const response = await axiosInstance.get("/admin/transfers");
+      return response.data;
+    },
+    retryTransfer: async (data: { destination: string; amount: number; transferGroup?: string }) => {
+      const response = await axiosInstance.post("/admin/transfers/retry", data);
+      return response.data;
+    },
+    getReports: async () => {
+      const response = await axiosInstance.get("/admin/reports");
+      return response.data;
+    },
+    actionReport: async (id: string, action: "resolve" | "dismiss") => {
+      const response = await axiosInstance.post(`/admin/reports/${id}/action`, { action });
+      return response.data;
+    },
+    getSettings: async () => {
+      const response = await axiosInstance.get("/admin/settings");
+      return response.data;
+    },
+    updateSettings: async (settings: any) => {
+      const response = await axiosInstance.put("/admin/settings", settings);
+      return response.data;
+    },
+    getPromos: async () => {
+      const response = await axiosInstance.get("/admin/promos");
+      return response.data;
+    },
+    createPromo: async (data: any) => {
+      const response = await axiosInstance.post("/admin/promos", data);
+      return response.data;
+    },
+    deletePromo: async (id: string) => {
+      const response = await axiosInstance.delete(`/admin/promos/${id}`);
+      return response.data;
+    },
+    getLogs: async () => {
+      const response = await axiosInstance.get("/admin/logs");
+      return response.data;
+    },
+    getSupportTickets: async () => {
+      const response = await axiosInstance.get("/admin/support");
+      return response.data;
+    },
+    updateSupportTicketStatus: async (id: string, status: "open" | "in_progress" | "resolved") => {
+      const response = await axiosInstance.patch(`/admin/support/${id}/status`, { status });
+      return response.data;
+    },
+    getNotifications: async () => {
+      const response = await axiosInstance.get("/admin/notifications");
+      return response.data;
+    },
   },
   orders: {
     cancel: async (id: string) => {
@@ -333,5 +385,31 @@ export const base44Live = {
       const response = await axiosInstance.post("/billing/cancel");
       return response.data as { success: boolean; message: string; cancel_at_period_end?: boolean };
     },
+  },
+  events: {
+    getPromos: async (eventId: string) => {
+      const response = await axiosInstance.get(`/events/${eventId}/promos`);
+      return response.data;
+    },
+    createPromo: async (eventId: string, data: any) => {
+      const response = await axiosInstance.post(`/events/${eventId}/promos`, data);
+      return response.data;
+    },
+    deletePromo: async (eventId: string, promoId: string) => {
+      const response = await axiosInstance.delete(`/events/${eventId}/promos/${promoId}`);
+      return response.data;
+    }
+  },
+  tickets: {
+    scan: async (qrCodeData: string) => {
+      const response = await axiosInstance.post("/tickets/scan", { qr_code_data: qrCodeData });
+      return response.data;
+    }
+  },
+  support: {
+    createTicket: async (data: { category: string; subject: string; message: string }) => {
+      const response = await axiosInstance.post("/support", data);
+      return response.data;
+    }
   },
 };

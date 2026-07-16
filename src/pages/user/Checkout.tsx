@@ -262,8 +262,10 @@ export default function Checkout({ eventIdProp, quantitiesProp, onCancel, onSucc
   };
 
   const selectedTickets = ticketTypes.filter(tt => (quantities[tt.id] || 0) > 0);
-  const totalAmount = selectedTickets.reduce((sum, tt) => sum + (tt.price || 0) * (quantities[tt.id] || 0), 0);
   const totalQty = Object.values(quantities).reduce((a, b) => a + b, 0);
+  const ticketSubtotal = selectedTickets.reduce((sum, tt) => sum + (tt.price || 0) * (quantities[tt.id] || 0), 0);
+  const serviceFeeTotal = ticketSubtotal > 0 ? totalQty * 1.50 : 0;
+  const totalAmount = ticketSubtotal + serviceFeeTotal;
 
   const handleConfirmOrder = async () => {
     setLoading(true);
@@ -406,6 +408,12 @@ export default function Checkout({ eventIdProp, quantitiesProp, onCancel, onSucc
                     <span className="text-zinc-400">{tt.price === 0 ? "Free" : `$${(tt.price * quantities[tt.id]).toFixed(2)}`}</span>
                   </div>
                 ))}
+                {serviceFeeTotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-zinc-400">Service Fee ($1.50/ticket)</span>
+                    <span className="text-zinc-400">${serviceFeeTotal.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
               {totalAmount > 0 && (
                 <div className="mt-3 pt-3 border-t border-zinc-800">
@@ -565,6 +573,12 @@ export default function Checkout({ eventIdProp, quantitiesProp, onCancel, onSucc
                   <span className="text-zinc-300">{tt.price === 0 ? "Free" : `$${(tt.price * quantities[tt.id]).toFixed(2)}`}</span>
                 </div>
               ))}
+              {serviceFeeTotal > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">Service Fee ($1.50/ticket)</span>
+                  <span className="text-zinc-300">${serviceFeeTotal.toFixed(2)}</span>
+                </div>
+              )}
             </div>
             <div className="border-t border-zinc-800 pt-3 flex justify-between font-bold">
               <span>Total</span>

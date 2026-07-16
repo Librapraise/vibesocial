@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Mail, Lock, Zap, Eye, EyeOff } from "lucide-react";
 import { createPageUrl } from "@/utils";
 
+import logoImg from "@/assets/logo.png";
+
 export default function Login() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
@@ -55,8 +57,8 @@ export default function Login() {
       <div className="relative w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-orange-500 to-pink-600 rounded-2xl shadow-lg shadow-orange-500/25 mb-4">
-            <Zap className="w-7 h-7 text-white" fill="white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-2xl mb-4 shadow-lg">
+            <img src={logoImg} alt="VibeSocial Logo" className="w-12 h-12 rounded-xl object-cover" />
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">
             Vibe<span className="bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent">Social</span>

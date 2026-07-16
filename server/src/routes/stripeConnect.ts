@@ -150,7 +150,7 @@ router.get(
           .select("email, name")
           .eq("id", userId)
           .single();
-
+ 
         if (userData?.email) {
           await sendEmail({
             to: userData.email,
@@ -165,6 +165,74 @@ router.get(
             `
           }).catch(err => console.error("Failed to send Connect active email:", err));
         }
+      }
+    }
+
+    // --- Retroactive Payout Transfer Logic (Runs whenever status is active) ---
+    if (newStatus === "active") {
+      try {
+        const { data: eventsList } = await supabaseAdmin
+          .from("events")
+          .select("id")
+          .eq("created_by", userId);
+
+        const eventIds = eventsList?.map((e) => e.id) || [];
+
+        if (eventIds.length > 0) {
+          const { data: pendingOrders } = await supabaseAdmin
+            .from("orders")
+            .select("id, total_amount, confirmation_code")
+            .in("event_id", eventIds)
+            .eq("status", "confirmed")
+            .is("stripe_transfer_id", null)
+            .gt("total_amount", 0);
+
+          if (pendingOrders && pendingOrders.length > 0) {
+            const platformFeePercent = parseFloat(env.PLATFORM_FEE_PERCENT || "10");
+            const payoutPercent = 100 - platformFeePercent;
+
+            for (const order of pendingOrders) {
+              const totalCents = Math.round(order.total_amount * 100);
+              // Calculate 2.9% + 30c card processing fee in cents
+              const stripeFeeCents = Math.round(totalCents * 0.029 + 30);
+              const basePayoutCents = Math.round(totalCents * (payoutPercent / 100));
+              const payoutAmount = basePayoutCents - stripeFeeCents;
+
+              if (payoutAmount <= 0) {
+                console.log(`Skipping order ${order.confirmation_code} because payout amount is <= 0 after fee deduction.`);
+                continue;
+              }
+
+              try {
+                const transfer = await stripe.transfers.create({
+                  amount: payoutAmount,
+                  currency: "usd",
+                  destination: connectId,
+                  description: `Retroactive payout transfer for order ${order.confirmation_code}`,
+                  metadata: { order_id: order.id },
+                });
+
+                await supabaseAdmin
+                  .from("orders")
+                  .update({ stripe_transfer_id: transfer.id })
+                  .eq("id", order.id);
+
+                console.log(
+                  `Successfully processed retroactive payout of $${(
+                    payoutAmount / 100
+                  ).toFixed(2)} for order ${order.confirmation_code}`
+                );
+              } catch (transferErr) {
+                console.error(
+                  `Failed to transfer for order ${order.id}:`,
+                  transferErr
+                );
+              }
+            }
+          }
+        }
+      } catch (retroactiveErr) {
+        console.error("Error processing retroactive transfers:", retroactiveErr);
       }
     }
 

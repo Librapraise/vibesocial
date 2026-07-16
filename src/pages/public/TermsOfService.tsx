@@ -75,6 +75,7 @@ const SECTIONS: Section[] = [
     body: [
       "When purchasing tickets through the Service, you enter into a transaction with the event organizer, not VibesSocial. VibesSocial acts solely as a platform facilitator.",
       "Refund policies are determined by individual event organizers. Please review the refund policy before completing any purchase.",
+      "VibeSocial charges a non-refundable service fee on ticket transactions. The exact service fee is calculated per transaction and is clearly displayed at checkout before payment is completed.",
     ],
   },
   {
@@ -90,7 +91,7 @@ const SECTIONS: Section[] = [
     body: [
       "Event organizers who sell tickets on VibesSocial agree to link their accounts via Stripe Connect (Express) to receive payouts.",
       "Payment processing services for organizers on VibesSocial are provided by Stripe and are subject to the Stripe Connected Account Agreement, which includes the Stripe Terms of Service.",
-      "By agreeing to these terms or continuing to operate as an organizer on VibesSocial, you agree to be bound by the Stripe Services Agreement, as modified by Stripe from time to time.",
+      "By agreeing to these terms or continuing to operate as an organizer on VibesSocial, you agree to pay VibesSocial a platform commission of 10% on all ticket sales. In addition, you agree to cover card processing fees, which are deducted directly from your payout balance via Stripe Connect.",
     ],
   },
   {

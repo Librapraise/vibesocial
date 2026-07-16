@@ -63,7 +63,8 @@ router.post(
     // 2. Validate availability
     const ticketTypeMap = new Map(ticketTypes.map((tt: any) => [tt.id, tt]));
     const orderLines = [];
-    let totalAmount = 0;
+    let totalBaseAmount = 0;
+    let totalQty = 0;
 
     for (const req_ticket of requestedTickets) {
       const tt = ticketTypeMap.get(req_ticket.ticket_type_id) as any;
@@ -85,8 +86,12 @@ router.post(
         quantity: req_ticket.quantity,
         unit_price: tt.price,
       });
-      totalAmount += tt.price * req_ticket.quantity;
+      totalBaseAmount += tt.price * req_ticket.quantity;
+      totalQty += req_ticket.quantity;
     }
+
+    const serviceFeeTotal = totalBaseAmount > 0 ? totalQty * 1.50 : 0;
+    const totalAmount = totalBaseAmount + serviceFeeTotal;
 
     const confirmationCode = generateConfirmationCode();
 
@@ -176,10 +181,12 @@ router.post(
         ? (organizer.stripe_connect_id as string)
         : null;
 
-    // Calculate platform fee for Connect charges
+    // Calculate platform fee for Connect charges (10% commission on base ticket price + 100% of service fee)
     const platformFeePercent = parseFloat(env.PLATFORM_FEE_PERCENT || "10");
+    const commissionCents = Math.round(totalBaseAmount * 100 * (platformFeePercent / 100));
+    const serviceFeeCents = Math.round(serviceFeeTotal * 100);
     const applicationFeeAmount = organizerConnectId
-      ? Math.round(totalAmount * 100 * (platformFeePercent / 100))
+      ? (commissionCents + serviceFeeCents)
       : 0;
 
     // Build PaymentIntent params
@@ -201,6 +208,7 @@ router.post(
     if (organizerConnectId) {
       paymentIntentParams.application_fee_amount = applicationFeeAmount;
       paymentIntentParams.transfer_data = { destination: organizerConnectId };
+      paymentIntentParams.on_behalf_of = organizerConnectId;
     }
 
     const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
@@ -216,6 +224,7 @@ router.post(
       status: "pending_payment",
       confirmation_code: confirmationCode,
       stripe_payment_intent_id: paymentIntent.id,
+      stripe_transfer_id: organizerConnectId ? "split_payout" : null,
     };
 
     const { data: order, error: orderError } = await supabaseAdmin

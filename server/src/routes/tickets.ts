@@ -100,13 +100,38 @@ router.post(
     const { qr_code_data } = req.body;
     if (!qr_code_data) throw new AppError("qr_code_data is required", 400);
 
-    const { data: ticket, error } = await supabaseAdmin
+    const uppercaseCode = qr_code_data.trim().toUpperCase();
+
+    // 1. Try to find a single ticket by qr_code_data
+    let { data: ticket } = await supabaseAdmin
       .from("tickets")
       .select("id, status, event_id, qr_code_data, events!event_id(title, created_by), ticket_types!ticket_type_id(name)")
-      .eq("qr_code_data", qr_code_data)
-      .single();
+      .eq("qr_code_data", uppercaseCode)
+      .maybeSingle();
 
-    if (error || !ticket) throw new AppError("Ticket not found or invalid QR code", 404);
+    // 2. If not found, check if it's an order confirmation code
+    if (!ticket) {
+      const { data: order } = await supabaseAdmin
+        .from("orders")
+        .select("id, confirmation_code")
+        .eq("confirmation_code", uppercaseCode)
+        .maybeSingle();
+
+      if (order) {
+        // Find the first unused/valid ticket in this order
+        const { data: orderTickets } = await supabaseAdmin
+          .from("tickets")
+          .select("id, status, event_id, qr_code_data, events!event_id(title, created_by), ticket_types!ticket_type_id(name)")
+          .eq("order_id", order.id);
+
+        if (orderTickets && orderTickets.length > 0) {
+          const unusedTicket = orderTickets.find(t => t.status === "valid");
+          ticket = unusedTicket || orderTickets[0];
+        }
+      }
+    }
+
+    if (!ticket) throw new AppError("Ticket or Order not found with that code", 404);
 
     const eventCreatedBy = (ticket.events as any)?.created_by;
     if (eventCreatedBy !== req.user!.id && req.user!.role !== "admin") {

@@ -52,14 +52,28 @@ router.post(
 
     const origin = req.headers.origin || "http://localhost:5173";
 
+    let finalPriceId = priceId;
+    if (priceId.startsWith("prod_")) {
+      const prices = await stripe.prices.list({
+        product: priceId,
+        active: true,
+        limit: 1,
+      });
+      if (prices.data && prices.data.length > 0) {
+        finalPriceId = prices.data[0].id;
+      } else {
+        throw new AppError("No active price found for this product ID", 400);
+      }
+    }
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ["card"],
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: finalPriceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${origin}/discover?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/discover`,
+      success_url: `${origin}/Home?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/Home`,
       client_reference_id: userId,
       metadata: { user_id: userId },
     });
@@ -94,7 +108,7 @@ router.post(
     // Create billing portal session hosted by Stripe
     const session = await stripe.billingPortal.sessions.create({
       customer: user.stripe_customer_id,
-      return_url: `${origin}/discover`,
+      return_url: `${origin}/Home`,
     });
 
     res.json({ url: session.url });

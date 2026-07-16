@@ -5,8 +5,12 @@ import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { z } from "zod";
 import { validate } from "../middleware/validate";
 import { sendEmail } from "../services/emailService";
+import Stripe from "stripe";
+import { env } from "../config/env";
+import { logBuffer } from "../utils/logBuffer";
 
 const router = Router();
+const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2026-06-24.dahlia" });
 
 // All admin routes require authentication + admin role
 router.use(requireAuth, requireRole("admin"));
@@ -77,10 +81,60 @@ router.get(
         .eq("status", "confirmed"),
     ]);
 
-    const totalRevenue = (revenueData || []).reduce(
-      (sum: number, o: any) => sum + (o.total_amount || 0),
-      0
-    );
+    let totalRevenue = 0;
+    let ticketGross = 0;
+    let subscriptionGross = 0;
+    let platformFeesCollected = 0;
+    let stripeProcessingFees = 0;
+    const transactionsList: any[] = [];
+
+    try {
+      const stripeCharges = await stripe.charges.list({ limit: 100 });
+      const succeededCharges = stripeCharges.data.filter((c) => c.status === "succeeded");
+
+      for (const c of succeededCharges) {
+        const gross = c.amount / 100;
+        const appFee = c.application_fee_amount ? c.application_fee_amount / 100 : 0;
+        
+        // Estimate Stripe processing fee (2.9% + 30c)
+        const stripeFee = (gross * 0.029) + 0.30;
+        
+        totalRevenue += gross;
+        
+        const isSubscription = c.description?.toLowerCase().includes("plus") || 
+                               c.description?.toLowerCase().includes("vip") ||
+                               c.description?.toLowerCase().includes("subscription");
+
+        if (isSubscription) {
+          subscriptionGross += gross;
+          // Platform keeps 100% of subscription revenue
+          platformFeesCollected += gross;
+        } else {
+          ticketGross += gross;
+          // Platform keeps the application fee (10% + service fee)
+          platformFeesCollected += appFee;
+        }
+        
+        stripeProcessingFees += stripeFee;
+
+        transactionsList.push({
+          id: c.id,
+          created: new Date(c.created * 1000).toISOString(),
+          description: c.description || "Payment Transaction",
+          amount: gross,
+          type: isSubscription ? "subscription" : "ticket",
+          fee: appFee,
+          stripeFee,
+          status: c.status
+        });
+      }
+    } catch (err) {
+      console.error("Failed to parse Stripe finance details:", err);
+      totalRevenue = (revenueData || []).reduce(
+        (sum: number, o: any) => sum + (o.total_amount || 0),
+        0
+      );
+    }
 
     // Recent activity: last 7 days of orders + status updates
     const sevenDaysAgo = new Date(
@@ -108,6 +162,13 @@ router.get(
       totalStatusUpdates: totalStatusUpdates || 0,
       newUsersThisWeek: newUsersWeek || 0,
       newOrdersThisWeek: newOrdersWeek || 0,
+      finance: {
+        ticketGross,
+        subscriptionGross,
+        platformFeesCollected,
+        stripeProcessingFees,
+        transactions: transactionsList
+      }
     });
   })
 );
@@ -138,10 +199,19 @@ router.post(
       supabaseAdmin.from("orders").select("total_amount").eq("status", "confirmed"),
     ]);
 
-    const totalRevenue = (revenueData || []).reduce(
-      (sum: number, o: any) => sum + (o.total_amount || 0),
-      0
-    );
+    let totalRevenue = 0;
+    try {
+      const stripeCharges = await stripe.charges.list({ limit: 100 });
+      totalRevenue = stripeCharges.data
+        .filter((c) => c.status === "succeeded")
+        .reduce((sum, c) => sum + c.amount / 100, 0);
+    } catch (err) {
+      console.error("Failed to fetch Stripe charges for weekly report:", err);
+      totalRevenue = (revenueData || []).reduce(
+        (sum: number, o: any) => sum + (o.total_amount || 0),
+        0
+      );
+    }
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -558,6 +628,353 @@ router.get(
     if (error) throw new AppError(error.message, 500);
 
     res.json(data || []);
+  })
+);
+
+// ─── PAYOUTS & TRANSFERS ──────────────────────────────────────────────────────
+
+router.get(
+  "/transfers",
+  asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const transfers = await stripe.transfers.list({ limit: 100 });
+      const transfersWithDetails = await Promise.all(
+        transfers.data.map(async (t) => {
+          const { data: organizer } = await supabaseAdmin
+            .from("users")
+            .select("id, name, email")
+            .eq("stripe_connect_id", t.destination)
+            .maybeSingle();
+          return {
+            id: t.id,
+            amount: t.amount / 100,
+            created: new Date(t.created * 1000).toISOString(),
+            destination: t.destination,
+            organizer: organizer || { name: "Unknown Organizer", email: "N/A" },
+            status: "succeeded",
+            transferGroup: t.transfer_group,
+          };
+        })
+      );
+      res.json(transfersWithDetails);
+    } catch (err: any) {
+      console.error("Failed to fetch Stripe transfers:", err);
+      res.json([]);
+    }
+  })
+);
+
+router.post(
+  "/transfers/retry",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { destination, amount, transferGroup } = req.body;
+    if (!destination || !amount) {
+      throw new AppError("Destination and amount are required", 400);
+    }
+    const transfer = await stripe.transfers.create({
+      amount: Math.round(amount * 100),
+      currency: "usd",
+      destination,
+      transfer_group: transferGroup || `retry_${Date.now()}`,
+    });
+    res.json({ success: true, transfer });
+  })
+);
+
+// ─── MODERATION REPORTS ───────────────────────────────────────────────────────
+
+router.get(
+  "/reports",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { data, error } = await supabaseAdmin
+      .from("content_reports")
+      .select(`
+        id, entity_type, entity_id, reason, status, created_at,
+        users!reporter_id(id, name, email)
+      `)
+      .order("created_at", { ascending: false });
+    if (error) throw new AppError(error.message, 500);
+    res.json(data || []);
+  })
+);
+
+router.post(
+  "/reports/:id/action",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { action } = req.body; // 'resolve' or 'dismiss'
+    if (!action || !["resolve", "dismiss"].includes(action)) {
+      throw new AppError("Invalid action type", 400);
+    }
+    
+    if (action === "resolve") {
+      const { data: report } = await supabaseAdmin
+        .from("content_reports")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+        
+      if (report) {
+        if (report.entity_type === "event") {
+          await supabaseAdmin.from("events").delete().eq("id", report.entity_id);
+        } else if (report.entity_type === "review") {
+          await supabaseAdmin.from("reviews").delete().eq("id", report.entity_id);
+        } else if (report.entity_type === "status_update") {
+          await supabaseAdmin.from("status_updates").delete().eq("id", report.entity_id);
+        }
+      }
+    }
+
+    const { error } = await supabaseAdmin
+      .from("content_reports")
+      .update({ status: action === "resolve" ? "resolved" : "dismissed" })
+      .eq("id", id);
+    if (error) throw new AppError(error.message, 500);
+
+    res.json({ success: true });
+  })
+);
+
+// ─── SYSTEM SETTINGS ──────────────────────────────────────────────────────────
+
+router.get(
+  "/settings",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { data, error } = await supabaseAdmin
+      .from("system_settings")
+      .select("key, value");
+    if (error) throw new AppError(error.message, 500);
+    
+    const settingsObj = (data || []).reduce((acc: any, s: any) => {
+      acc[s.key] = s.value;
+      return acc;
+    }, {});
+    res.json(settingsObj);
+  })
+);
+
+router.put(
+  "/settings",
+  asyncHandler(async (req: Request, res: Response) => {
+    const settings = req.body;
+    for (const [key, value] of Object.entries(settings)) {
+      const { error } = await supabaseAdmin
+        .from("system_settings")
+        .upsert({ key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: "key" });
+      if (error) throw new AppError(error.message, 500);
+    }
+    res.json({ success: true });
+  })
+);
+
+// ─── PROMO CODES ─────────────────────────────────────────────────────────────
+
+router.get(
+  "/promos",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { data, error } = await supabaseAdmin
+      .from("promo_codes")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw new AppError(error.message, 500);
+    res.json(data || []);
+  })
+);
+
+router.post(
+  "/promos",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { code, discount_type, discount_value, max_uses, expires_at, event_id } = req.body;
+    if (!code || !discount_type || !discount_value) {
+      throw new AppError("Missing required promo fields", 400);
+    }
+    const { data, error } = await supabaseAdmin
+      .from("promo_codes")
+      .insert({
+        code: code.toUpperCase(),
+        discount_type,
+        discount_value,
+        max_uses: max_uses ? Number(max_uses) : null,
+        expires_at: expires_at || null,
+        is_active: true,
+        event_id: event_id || null
+      })
+      .select()
+      .single();
+    if (error) throw new AppError(error.message, 500);
+    res.json(data);
+  })
+);
+
+router.delete(
+  "/promos/:id",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { error } = await supabaseAdmin
+      .from("promo_codes")
+      .delete()
+      .eq("id", id);
+    if (error) throw new AppError(error.message, 500);
+    res.json({ success: true });
+  })
+);
+
+// ─── SYSTEM LOGS ─────────────────────────────────────────────────────────────
+
+router.get(
+  "/logs",
+  asyncHandler(async (req: Request, res: Response) => {
+    res.json(logBuffer);
+  })
+);
+
+// ─── SUPPORT TICKETS ─────────────────────────────────────────────────────────
+
+router.get(
+  "/support",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { data, error } = await supabaseAdmin
+      .from("support_tickets")
+      .select(`
+        id, category, subject, message, status, created_at,
+        users!user_id(id, name, email)
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) throw new AppError(error.message, 500);
+    res.json(data || []);
+  })
+);
+
+router.patch(
+  "/support/:id/status",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body; // 'open' | 'in_progress' | 'resolved'
+    if (!status || !["open", "in_progress", "resolved"].includes(status)) {
+      throw new AppError("Invalid status value", 400);
+    }
+
+    const { data: ticket, error: fetchErr } = await supabaseAdmin
+      .from("support_tickets")
+      .select("*, users!user_id(name, email)")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchErr || !ticket) {
+      throw new AppError("Ticket not found", 404);
+    }
+
+    const { error: updateErr } = await supabaseAdmin
+      .from("support_tickets")
+      .update({ status })
+      .eq("id", id);
+
+    if (updateErr) throw new AppError(updateErr.message, 500);
+
+    // Notify the user about their support ticket status change
+    if (ticket.users?.email) {
+      try {
+        await sendEmail({
+          to: ticket.users.email,
+          subject: `📢 Update on your Support Request: [${ticket.category}] ${ticket.subject}`,
+          html: `
+            <h2>Support Ticket Status Update</h2>
+            <p>Hi ${ticket.users.name || "User"},</p>
+            <p>The status of your support request <strong>"${ticket.subject}"</strong> has been updated to: <strong style="text-transform: uppercase; color: #f97316;">${status}</strong>.</p>
+            <br/>
+            <p>Best regards,<br/>The VibeSocial Support Team</p>
+          `,
+        });
+      } catch (err) {
+        console.error("Failed to send status update email to user:", err);
+      }
+    }
+
+    // CC admin
+    const adminEmail = process.env.EMAIL_FROM || "admin@vibesocial.app";
+    try {
+      await sendEmail({
+        to: adminEmail,
+        subject: `📢 Support Ticket Status Changed: ${ticket.subject}`,
+        html: `
+          <h3>Support Ticket Status Updated</h3>
+          <p>Ticket ID: ${ticket.id}</p>
+          <p>New Status: <strong>${status}</strong></p>
+          <p>User: ${ticket.users?.name || "N/A"} (${ticket.users?.email || "N/A"})</p>
+        `,
+      });
+    } catch (err) {
+      console.error("Failed to notify admin of status change:", err);
+    }
+
+    res.json({ success: true });
+  })
+);
+
+router.get(
+  "/notifications",
+  asyncHandler(async (req: Request, res: Response) => {
+    // 1. Open Support Tickets
+    const { data: tickets } = await supabaseAdmin
+      .from("support_tickets")
+      .select("id, category, subject, created_at")
+      .eq("status", "open");
+
+    // 2. Pending Venue Applications
+    const { data: venueApps } = await supabaseAdmin
+      .from("venue_applications")
+      .select("id, name, created_at")
+      .eq("status", "pending");
+
+    // 3. Pending Moderation Reports
+    const { data: reports } = await supabaseAdmin
+      .from("content_reports")
+      .select("id, entity_type, reason, created_at")
+      .eq("status", "pending");
+
+    const alerts: any[] = [];
+
+    if (tickets) {
+      tickets.forEach((t) => {
+        alerts.push({
+          id: `ticket-${t.id}`,
+          title: `🎫 New Support Ticket`,
+          message: `[${t.category}] ${t.subject}`,
+          created_date: t.created_at,
+          link_section: "support",
+        });
+      });
+    }
+
+    if (venueApps) {
+      venueApps.forEach((v) => {
+        alerts.push({
+          id: `venue-${v.id}`,
+          title: `🏢 Pending Venue Application`,
+          message: `New application from "${v.name}"`,
+          created_date: v.created_at,
+          link_section: "venue-applications",
+        });
+      });
+    }
+
+    if (reports) {
+      reports.forEach((r) => {
+        alerts.push({
+          id: `report-${r.id}`,
+          title: `⚠️ Flagged Content Report`,
+          message: `A ${r.entity_type} was flagged for "${r.reason}"`,
+          created_date: r.created_at,
+          link_section: "moderation",
+        });
+      });
+    }
+
+    // Sort by created_date desc
+    alerts.sort((a, b) => new Date(b.created_date).getTime() - new Date(a.created_date).getTime());
+
+    res.json(alerts);
   })
 );
 

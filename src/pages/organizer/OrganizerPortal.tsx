@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,6 +17,9 @@ import {
   QrCode,
   AlertCircle,
   CheckCircle,
+  Percent,
+  Trash2,
+  Search,
 } from "lucide-react";
 import { createPageUrl, venueTypeIcons } from "@/utils";
 import { useAuth } from "@/lib/AuthContext";
@@ -62,6 +65,7 @@ export default function OrganizerPortal() {
   const [user, setUser] = useState<any>(authUser);
   const [userLoading, setUserLoading] = useState<boolean>(!authUser);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "ticketing" | "marketing" | "payouts">("overview");
   const queryClient = useQueryClient();
 
   const [qrCodeInput, setQrCodeInput] = useState("");
@@ -76,23 +80,11 @@ export default function OrganizerPortal() {
     setScanResult(null);
     setScanError(null);
     try {
-      const response = await fetch("http://localhost:5000/api/tickets/scan", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
-        },
-        body: JSON.stringify({ qr_code_data: qrCodeInput.trim().toUpperCase() }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setScanError(data.error || "Failed to validate ticket");
-      } else {
-        setScanResult(data);
-        setQrCodeInput("");
-      }
+      const data = await base44.tickets.scan(qrCodeInput.trim().toUpperCase());
+      setScanResult(data);
+      setQrCodeInput("");
     } catch (err: any) {
-      setScanError(err?.message || "Connection error");
+      setScanError(err?.response?.data?.error || err?.message || "Connection error");
     }
     setScanning(false);
   };
@@ -116,6 +108,8 @@ export default function OrganizerPortal() {
       .finally(() => setUserLoading(false));
   }, [authUser]);
 
+  const [searchTerm, setSearchTerm] = useState("");
+
   // Events created by current user (fallback to all active if none)
   const { data: myEvents = [], isLoading: isLoadingEvents } = useQuery<EventItem[]>({
     queryKey: ["organizerEvents", user?.id],
@@ -127,6 +121,11 @@ export default function OrganizerPortal() {
     },
     enabled: !!user?.id,
   });
+
+  const filteredEvents = useMemo(() => {
+    if (!searchTerm.trim()) return myEvents;
+    return myEvents.filter((e) => e.title?.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [myEvents, searchTerm]);
 
   const selectedEvent = myEvents.find((e) => e.id === selectedEventId) || myEvents[0];
   const activeId = selectedEvent?.id;
@@ -147,6 +146,26 @@ export default function OrganizerPortal() {
     queryKey: ["eventStatusesPortal", activeId],
     queryFn: () => base44.entities.EventStatus.filter({ event_id: activeId }, "-created_date", 50),
     enabled: !!activeId,
+  });
+
+  const { data: eventPromos = [], isLoading: isLoadingPromos, refetch: refetchPromos } = useQuery({
+    queryKey: ["eventPromos", activeId],
+    queryFn: () => (base44 as any).events.getPromos(activeId),
+    enabled: !!activeId,
+  });
+
+  const createPromoMutation = useMutation({
+    mutationFn: (data: any) => (base44 as any).events.createPromo(activeId, data),
+    onSuccess: () => {
+      refetchPromos();
+    }
+  });
+
+  const deletePromoMutation = useMutation({
+    mutationFn: (promoId: string) => (base44 as any).events.deletePromo(activeId, promoId),
+    onSuccess: () => {
+      refetchPromos();
+    }
   });
 
   const stats = useMemo(() => {
@@ -214,191 +233,391 @@ export default function OrganizerPortal() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Event selector */}
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-          {myEvents.map((e) => (
-            <button
-              key={e.id}
-              onClick={() => setSelectedEventId(e.id)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition",
-                activeId === e.id
-                  ? "bg-orange-500 text-white border-orange-500"
-                  : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700"
-              )}
-            >
-              <span className="inline-flex items-center gap-1.5 capitalize">
-                {(() => {
-                  const Icon = venueTypeIcons[e.venue_type || "other"] || venueTypeIcons.other;
-                  return <Icon className={cn("w-3.5 h-3.5", activeId === e.id ? "text-white" : "text-orange-400")} />;
-                })()}
-                {e.title}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {selectedEvent && (
-          <>
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard icon={DollarSign} label="Revenue" value={`$${stats.revenue.toFixed(0)}`} color="green" />
-              <StatCard icon={Users} label="Attendees" value={stats.attendees} color="blue" />
-              <StatCard icon={Ticket} label="Tickets Sold" value={stats.ticketsSold} color="orange" />
-              <StatCard icon={TrendingUp} label="Status Updates" value={stats.statusCount} color="purple" />
-            </div>
-
-            {/* Event header */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="min-w-0">
-                  <h2 className="text-xl font-bold text-white">{selectedEvent.title}</h2>
-                  <p className="text-zinc-400 text-sm">{selectedEvent.venue_name}</p>
-                  {selectedEvent.start_time && (
-                    <p className="text-zinc-500 text-xs mt-1">
-                      {format(new Date(selectedEvent.start_time), "EEEE, MMM d · h:mm a")}
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Link to={`${createPageUrl("EventDetail")}?id=${selectedEvent.id}`}>
-                    <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
-                      View Event
-                    </Button>
-                  </Link>
-                  <Link to={`${createPageUrl("EventOrders")}?event_id=${selectedEvent.id}`}>
-                    <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
-                      Full Orders
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-
-            {/* Recent orders / attendees */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="w-5 h-5 text-orange-400" />
-                <h3 className="text-lg font-bold text-white">Recent Attendees</h3>
-              </div>
-              {isLoadingOrders ? (
-                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-zinc-600" /></div>
-              ) : orders.length === 0 ? (
-                <div className="bg-zinc-900 border border-dashed border-zinc-800 rounded-2xl p-6 text-center text-zinc-500 text-sm">
-                  No orders yet.
-                </div>
-              ) : (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl divide-y divide-zinc-800">
-                  {orders.slice(0, 8).map((o) => (
-                    <div key={o.id} className="p-4 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                          {(o.attendee_name || "?")[0].toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-white text-sm font-medium truncate">{o.attendee_name}</p>
-                          <p className="text-zinc-500 text-xs truncate">
-                            {o.tickets?.reduce((t, ti) => t + (ti.quantity || 0), 0) || 0} ticket(s) · ${o.total_amount || 0}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">
-                        {o.confirmation_code?.slice(0, 8) || "—"}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* Ticket manager */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <Settings className="w-5 h-5 text-orange-400" />
-                <h3 className="text-lg font-bold text-white">Ticket Types</h3>
-              </div>
-              {isLoadingTickets ? (
-                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-zinc-600" /></div>
-              ) : (
-                <TicketTypeManager event={{ id: selectedEvent.id, title: selectedEvent.title }} />
-              )}
-            </section>
-
-            {/* Ticket scanning console */}
-            <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
-              <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
-                <QrCode className="w-5 h-5 text-orange-400" />
-                <div>
-                  <h3 className="text-base font-bold text-white">Ticket Verification Console</h3>
-                  <p className="text-zinc-550 text-xs mt-0.5">Scan or enter the attendee's ticket code string (e.g. VS-XXXX) to check them in.</p>
-                </div>
-              </div>
-
-              <form onSubmit={handleScanVerify} className="flex gap-2">
+        {/* Event selector & Search */}
+        {myEvents.length === 0 ? (
+          <div className="bg-zinc-900 border border-dashed border-zinc-800 rounded-2xl p-8 text-center text-zinc-500 text-sm">
+            <Ticket className="w-8 h-8 mx-auto mb-3 text-zinc-600 opacity-60" />
+            <p className="font-semibold text-white mb-1">No Hosted Events Found</p>
+            <p className="text-zinc-550 text-xs max-w-xs mx-auto mb-4">You haven't created any events or venue applications yet.</p>
+            <Link to={createPageUrl("VenueApplications")}>
+              <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl px-5 text-xs">
+                Submit Venue Application
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {myEvents.length > 4 && (
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
-                  value={qrCodeInput}
-                  onChange={(e) => setQrCodeInput(e.target.value)}
-                  placeholder="Enter Ticket QR Code (e.g. VS-1A2B3C)..."
-                  className="flex-1 bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-650 focus:outline-none focus:ring-1 focus:ring-orange-500/40"
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search your hosted events by name..."
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-orange-500/30"
                 />
-                <Button
-                  type="submit"
-                  disabled={scanning || !qrCodeInput.trim()}
-                  className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 rounded-xl h-11"
+              </div>
+            )}
+
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+              {filteredEvents.map((e) => (
+                <button
+                  key={e.id}
+                  onClick={() => setSelectedEventId(e.id)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition",
+                    activeId === e.id
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700"
+                  )}
                 >
-                  {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify Code"}
-                </Button>
-              </form>
+                  <span className="inline-flex items-center gap-1.5 capitalize">
+                    {(() => {
+                      const Icon = venueTypeIcons[e.venue_type || "other"] || venueTypeIcons.other;
+                      return <Icon className={cn("w-3.5 h-3.5", activeId === e.id ? "text-white" : "text-orange-400")} />;
+                    })()}
+                    {e.title}
+                  </span>
+                </button>
+              ))}
+            </div>
 
-              {scanError && (
-                <div className="bg-red-500/5 border border-red-500/10 p-3.5 rounded-xl text-xs text-red-400 flex items-start gap-2.5 animate-pulse">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold block mb-0.5">Validation Failed</span>
-                    <span>{scanError}</span>
-                  </div>
-                </div>
-              )}
-
-              {scanResult && (
-                <div className="bg-emerald-500/5 border border-emerald-500/10 p-3.5 rounded-xl text-xs text-emerald-400 flex items-start gap-2.5">
-                  <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold block mb-0.5">Ticket Confirmed!</span>
-                    <p className="text-zinc-300 mt-1">
-                      Event: <strong className="text-white">{scanResult.ticket?.events?.title}</strong><br/>
-                      Tier: <strong className="text-white">{scanResult.ticket?.ticket_types?.name}</strong><br/>
-                      Code: <strong className="text-white font-mono">{scanResult.ticket?.qr_code_data}</strong>
-                    </p>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* Live status update */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <Megaphone className="w-5 h-5 text-orange-400" />
-                <h3 className="text-lg font-bold text-white">Update Live Status</h3>
-              </div>
-              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-                <StatusUpdateForm
-                  eventId={selectedEvent.id}
-                  onSubmitted={() => queryClient.invalidateQueries({ queryKey: ["eventStatusesPortal", selectedEvent.id] })}
-                />
-              </div>
-            </section>
-          </>
+            {filteredEvents.length === 0 && (
+              <p className="text-zinc-500 text-xs italic">No events match your search term.</p>
+            )}
+          </div>
         )}
 
-        {/* Stripe payouts — always visible to organizers */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <DollarSign className="w-5 h-5 text-orange-400" />
-            <h3 className="text-lg font-bold text-white">Payout Settings</h3>
+        {selectedEvent && (
+          <div className="space-y-6">
+            {/* Sub navigation tabs */}
+            <div className="flex border-b border-zinc-800 gap-1 overflow-x-auto pb-px">
+              {([
+                { id: "overview", label: "Performance", icon: TrendingUp },
+                { id: "ticketing", label: "Ticket Operations", icon: Ticket },
+                { id: "marketing", label: "Marketing & Promos", icon: Percent },
+                { id: "payouts", label: "Payout Settings", icon: DollarSign },
+              ] as const).map((tab) => {
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap -mb-px",
+                      active
+                        ? "border-orange-500 text-white"
+                        : "border-transparent text-zinc-500 hover:text-zinc-300"
+                    )}
+                  >
+                    <tab.icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* TAB CONTENT: OVERVIEW */}
+            {activeTab === "overview" && (
+              <div className="space-y-6">
+                {/* Stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <StatCard icon={DollarSign} label="Revenue" value={`$${stats.revenue.toFixed(0)}`} color="green" />
+                  <StatCard icon={Users} label="Attendees" value={stats.attendees} color="blue" />
+                  <StatCard icon={Ticket} label="Tickets Sold" value={stats.ticketsSold} color="orange" />
+                  <StatCard icon={TrendingUp} label="Status Updates" value={stats.statusCount} color="purple" />
+                </div>
+
+                {/* Event header */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="min-w-0">
+                      <h2 className="text-xl font-bold text-white">{selectedEvent.title}</h2>
+                      <p className="text-zinc-400 text-sm">{selectedEvent.venue_name}</p>
+                      {selectedEvent.start_time && (
+                        <p className="text-zinc-500 text-xs mt-1">
+                          {format(new Date(selectedEvent.start_time), "EEEE, MMM d · h:mm a")}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <Link to={`${createPageUrl("EventDetail")}?id=${selectedEvent.id}`}>
+                        <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+                          View Event
+                        </Button>
+                      </Link>
+                      <Link to={`${createPageUrl("EventOrders")}?event_id=${selectedEvent.id}`}>
+                        <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+                          Full Orders
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent orders / attendees */}
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users className="w-5 h-5 text-orange-400" />
+                    <h3 className="text-lg font-bold text-white">Recent Attendees</h3>
+                  </div>
+                  {isLoadingOrders ? (
+                    <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-zinc-600" /></div>
+                  ) : orders.length === 0 ? (
+                    <div className="bg-zinc-900 border border-dashed border-zinc-800 rounded-2xl p-6 text-center text-zinc-500 text-sm">
+                      No orders yet.
+                    </div>
+                  ) : (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl divide-y divide-zinc-800">
+                      {orders.slice(0, 8).map((o) => (
+                        <div key={o.id} className="p-4 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                              {(o.attendee_name || "?")[0].toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-white text-sm font-medium truncate">{o.attendee_name}</p>
+                              <p className="text-zinc-500 text-xs truncate">
+                                {o.tickets?.reduce((t, ti) => t + (ti.quantity || 0), 0) || 0} ticket(s) · ${o.total_amount || 0}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">
+                            {o.confirmation_code?.slice(0, 8) || "—"}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </div>
+            )}
+
+            {/* TAB CONTENT: TICKETING */}
+            {activeTab === "ticketing" && (
+              <div className="space-y-6">
+                {/* Ticket manager */}
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Settings className="w-5 h-5 text-orange-400" />
+                    <h3 className="text-lg font-bold text-white">Ticket Types</h3>
+                  </div>
+                  {isLoadingTickets ? (
+                    <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-zinc-600" /></div>
+                  ) : (
+                    <TicketTypeManager event={{ id: selectedEvent.id, title: selectedEvent.title }} />
+                  )}
+                </section>
+
+                {/* Ticket scanning console */}
+                <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+                    <QrCode className="w-5 h-5 text-orange-400" />
+                    <div>
+                      <h3 className="text-base font-bold text-white">Ticket Verification Console</h3>
+                      <p className="text-zinc-550 text-xs mt-0.5">Scan or enter the attendee's ticket code string (e.g. VS-XXXX) to check them in.</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleScanVerify} className="flex gap-2">
+                    <input
+                      value={qrCodeInput}
+                      onChange={(e) => setQrCodeInput(e.target.value)}
+                      placeholder="Enter Ticket QR Code (e.g. VS-1A2B3C)..."
+                      className="flex-1 bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-650 focus:outline-none focus:ring-1 focus:ring-orange-500/40"
+                    />
+                    <Button
+                      type="submit"
+                      disabled={scanning || !qrCodeInput.trim()}
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 rounded-xl h-11"
+                    >
+                      {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify Code"}
+                    </Button>
+                  </form>
+
+                  {scanError && (
+                    <div className="bg-red-500/5 border border-red-500/10 p-3.5 rounded-xl text-xs text-red-400 flex items-start gap-2.5 animate-pulse">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block mb-0.5">Validation Failed</span>
+                        <span>{scanError}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {scanResult && (
+                    <div className="bg-emerald-500/5 border border-emerald-500/10 p-3.5 rounded-xl text-xs text-emerald-400 flex items-start gap-2.5">
+                      <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block mb-0.5">Ticket Confirmed!</span>
+                        <p className="text-zinc-300 mt-1">
+                          Event: <strong className="text-white">{scanResult.ticket?.events?.title}</strong><br/>
+                          Tier: <strong className="text-white">{scanResult.ticket?.ticket_types?.name}</strong><br/>
+                          Code: <strong className="text-white font-mono">{scanResult.ticket?.qr_code_data}</strong>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              </div>
+            )}
+
+            {/* TAB CONTENT: MARKETING */}
+            {activeTab === "marketing" && (
+              <div className="space-y-6">
+                {/* Live status update */}
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Megaphone className="w-5 h-5 text-orange-400" />
+                    <h3 className="text-lg font-bold text-white">Update Live Status</h3>
+                  </div>
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+                    <StatusUpdateForm
+                      eventId={selectedEvent.id}
+                      onSubmitted={() => queryClient.invalidateQueries({ queryKey: ["eventStatusesPortal", selectedEvent.id] })}
+                    />
+                  </div>
+                </section>
+
+                {/* Promo Codes manager */}
+                <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center gap-2 border-b border-zinc-850 pb-3">
+                    <Percent className="w-5 h-5 text-orange-400" />
+                    <div>
+                      <h3 className="text-base font-bold text-white">Event Promo Codes</h3>
+                      <p className="text-zinc-550 text-xs mt-0.5">Manage discounts and promotional coupons for this event.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Promo Code Form */}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const form = e.currentTarget;
+                        const formData = new FormData(form);
+                        createPromoMutation.mutate({
+                          code: formData.get("code"),
+                          discount_type: formData.get("discount_type"),
+                          discount_value: parseFloat(formData.get("discount_value") as string),
+                          max_uses: formData.get("max_uses") ? parseInt(formData.get("max_uses") as string) : null,
+                          expires_at: formData.get("expires_at") || null,
+                        }, {
+                          onSuccess: () => form.reset()
+                        });
+                      }}
+                      className="space-y-3"
+                    >
+                      <div>
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Promo Code</label>
+                        <input
+                          name="code"
+                          placeholder="e.g. EARLY5"
+                          required
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-orange-500/30"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Discount Type</label>
+                        <select
+                          name="discount_type"
+                          required
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-xs text-white outline-none focus:ring-1 focus:ring-orange-500/30 transition"
+                        >
+                          <option value="percentage">Percentage (%)</option>
+                          <option value="fixed">Fixed Amount ($)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Discount Value</label>
+                        <input
+                          name="discount_value"
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          required
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-orange-500/30"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Max Uses (Optional)</label>
+                        <input
+                          name="max_uses"
+                          type="number"
+                          min="1"
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-650 focus:outline-none focus:ring-1 focus:ring-orange-500/30"
+                        />
+                      </div>
+
+                      <Button
+                        type="submit"
+                        disabled={createPromoMutation.isPending}
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold h-9 text-xs rounded-xl flex items-center justify-center gap-1.5"
+                      >
+                        {createPromoMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />}
+                        Add Promo Code
+                      </Button>
+                    </form>
+
+                    {/* Promo Code List */}
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Active Coupons</h4>
+                      {isLoadingPromos ? (
+                        <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-zinc-600" /></div>
+                      ) : eventPromos.length === 0 ? (
+                        <div className="text-xs text-zinc-500 italic py-4">No coupons created for this event yet.</div>
+                      ) : (
+                        <div className="divide-y divide-zinc-800 border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950/30">
+                          {eventPromos.map((p: any) => (
+                            <div key={p.id} className="p-3 flex items-center justify-between text-xs gap-2">
+                              <div>
+                                <span className="font-bold text-orange-400">{p.code}</span>
+                                <span className="text-zinc-500 mx-1.5">·</span>
+                                <span className="text-zinc-300">
+                                  {p.discount_type === "percentage" ? `${p.discount_value}%` : `$${p.discount_value}`} off
+                                </span>
+                                <div className="text-[10px] text-zinc-550 mt-0.5">
+                                  Used: {p.used_count} / {p.max_uses || "∞"}
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => deletePromoMutation.mutate(p.id)}
+                                disabled={deletePromoMutation.isPending}
+                                className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10 p-1.5 h-7 rounded-lg"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {/* TAB CONTENT: PAYOUTS */}
+            {activeTab === "payouts" && (
+              <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+                  <DollarSign className="w-5 h-5 text-orange-400" />
+                  <div>
+                    <h3 className="text-base font-bold text-white">Payout Settings</h3>
+                    <p className="text-zinc-550 text-xs mt-0.5">Connect your Stripe express account to receive direct payouts.</p>
+                  </div>
+                </div>
+                <StripeConnectCard />
+              </section>
+            )}
           </div>
-          <StripeConnectCard />
-        </section>
+        )}
       </div>
     </div>
   );

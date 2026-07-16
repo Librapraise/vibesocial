@@ -572,6 +572,29 @@ export default function Profile() {
               <p className="text-xs text-zinc-500 mt-1">Configure your screen name, custom bio description, and social media handles.</p>
             </div>
 
+            <div className="space-y-1.5 flex flex-col items-center sm:flex-row sm:items-center gap-4 pb-4 border-b border-zinc-800/40">
+              <div className="relative group w-16 h-16 rounded-full border border-zinc-800 overflow-hidden bg-zinc-950 flex items-center justify-center shrink-0">
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt={editName} className="w-full h-full object-cover" />
+                ) : (
+                  <UserCircle className="w-8 h-8 text-zinc-600" />
+                )}
+                {uploadingAvatar && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                    <Loader2 className="w-5 h-5 animate-spin text-orange-400" />
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">Profile Photo</Label>
+                <label className="text-xs font-bold text-orange-400 hover:text-orange-350 cursor-pointer flex items-center gap-1.5 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 px-3 py-1.5 rounded-xl transition w-fit">
+                  <Camera className="w-3.5 h-3.5" />
+                  {user.avatar_url ? "Change Photo" : "Upload Photo"}
+                  <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                </label>
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Display Name</Label>
               <Input

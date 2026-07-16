@@ -289,6 +289,36 @@ export const base44Mock = {
       if (idx !== -1) entityStore["StatusUpdate"].splice(idx, 1);
       return { success: true };
     },
+    getTransfers: async () => [
+      { id: "tr_mock1", amount: 90, created: new Date().toISOString(), destination: "acct_mock1", organizer: { name: "Mock Organizer", email: "mock@org.com" }, status: "succeeded", transferGroup: "group1" }
+    ],
+    retryTransfer: async (data: any) => ({ success: true, transfer: { id: "tr_retry_mock" } }),
+    getReports: async () => [
+      { id: "rep1", entity_type: "review", entity_id: "rev1", reason: "Spam", status: "pending", created_at: new Date().toISOString(), users: { name: "Reporter User", email: "rep@user.com" } }
+    ],
+    actionReport: async (id: string, action: string) => ({ success: true }),
+    getSettings: async () => ({
+      PLATFORM_FEE_PERCENT: "10",
+      SERVICE_FEE_CENTS: "150",
+      MAINTENANCE_MODE: "false"
+    }),
+    updateSettings: async (settings: any) => ({ success: true }),
+    getPromos: async () => [
+      { id: "p1", code: "WELCOME10", discount_type: "percentage", discount_value: 10, max_uses: 100, used_count: 5, expires_at: null, is_active: true, event_id: null }
+    ],
+    createPromo: async (data: any) => ({ id: "p_new", ...data, used_count: 0, is_active: true }),
+    deletePromo: async (id: string) => ({ success: true }),
+    getLogs: async () => [
+      `[${new Date().toISOString()}] Server started in mock mode.`,
+      `[${new Date().toISOString()}] DB connections initialized.`
+    ],
+    getSupportTickets: async () => [
+      { id: "st_1", category: "Billing", subject: "Double Charge", message: "I was charged twice for VIP ticket", status: "open", created_at: new Date().toISOString(), users: { id: "user_mock", name: "Mock User", email: "mock@user.com" } }
+    ],
+    updateSupportTicketStatus: async (id: string, status: string) => ({ success: true }),
+    getNotifications: async () => [
+      { id: "st_mock", title: "🎫 New Support Ticket", message: "[Billing] Double Charge", created_date: new Date().toISOString(), link_section: "support" }
+    ],
   },
   integrations: {
     Core: {
@@ -324,6 +354,22 @@ export const base44Mock = {
       if (review) Object.assign(review, data);
       return review || { id, ...data };
     }
+  },
+  events: {
+    getPromos: async (eventId: string) => [
+      { id: "pe_1", code: "EARLYBIRD", discount_type: "fixed", discount_value: 5, max_uses: 20, used_count: 2, expires_at: null, is_active: true, event_id: eventId }
+    ],
+    createPromo: async (eventId: string, data: any) => ({ id: "pe_new", ...data, event_id: eventId, used_count: 0, is_active: true }),
+    deletePromo: async (eventId: string, promoId: string) => ({ success: true })
+  },
+  tickets: {
+    scan: async (qrCodeData: string) => {
+      console.log("Mock scan ticket with code:", qrCodeData);
+      return { success: true, message: "Ticket validated successfully (mock)", ticket: MOCK_TICKETS[0] };
+    }
+  },
+  support: {
+    createTicket: async (data: any) => ({ id: "st_new", ...data, status: "open", created_at: new Date().toISOString() })
   }
 };
 

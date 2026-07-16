@@ -16,6 +16,15 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("expired") === "true") {
+      setSessionExpired(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -68,6 +77,11 @@ export default function Login() {
 
         {/* Card */}
         <div className="bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 rounded-2xl p-8 shadow-2xl">
+          {sessionExpired && (
+            <div className="mb-5 bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 text-center">
+              <p className="text-orange-400 text-sm font-medium">Your session has expired. Please sign in again.</p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label className="text-zinc-300 text-sm font-medium">Email</Label>

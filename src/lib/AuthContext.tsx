@@ -117,6 +117,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 if (res.ok) {
                     const profile = await res.json();
                     setUser(profile);
+                } else if (res.status === 401) {
+                    localStorage.removeItem('vibe_token');
+                    localStorage.removeItem('vibe_refresh_token');
+                    await supabaseBrowser.auth.signOut();
+                    setSession(null);
+                    setUser(null);
+                    setIsAuthenticated(false);
+                    setIsLoadingAuth(false);
+                    hasLoadedInitialAuth.current = true;
+                    if (window.location.pathname !== "/Login" && window.location.pathname !== "/Register") {
+                        window.location.href = "/Login?expired=true";
+                    }
+                    return;
                 } else {
                     setUser({ id: session.user.id, email: session.user.email, name: session.user.email });
                 }

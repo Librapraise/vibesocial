@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { z } from "zod";
 import { validate } from "../middleware/validate";
-import { sendEmail } from "../services/emailService";
+import { sendEmail, getAdminEmails } from "../services/emailService";
 import Stripe from "stripe";
 import { env } from "../config/env";
 import { logBuffer } from "../utils/logBuffer";
@@ -227,9 +227,9 @@ router.post(
       .eq("status", "confirmed");
 
     // Send email
-    const adminEmail = process.env.EMAIL_FROM || "admin@vibesocial.app";
+    const adminEmails = await getAdminEmails();
     await sendEmail({
-      to: adminEmail,
+      to: adminEmails,
       subject: "📊 Weekly Platform Health & Activity Summary - VibeSocial",
       html: `
         <h2>Weekly Platform Report</h2>
@@ -892,10 +892,10 @@ router.patch(
     }
 
     // CC admin
-    const adminEmail = process.env.EMAIL_FROM || "admin@vibesocial.app";
+    const adminEmails = await getAdminEmails();
     try {
       await sendEmail({
-        to: adminEmail,
+        to: adminEmails,
         subject: `📢 Support Ticket Status Changed: ${ticket.subject}`,
         html: `
           <h3>Support Ticket Status Updated</h3>

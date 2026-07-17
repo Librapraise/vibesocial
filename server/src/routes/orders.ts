@@ -140,9 +140,28 @@ router.post(
       // Trigger user notification
       const { data: eventDetails } = await supabaseAdmin
         .from("events")
-        .select("title")
+        .select("title, venue_name, address, start_time")
         .eq("id", event_id)
         .single();
+
+      // Send ticket confirmation email
+      await sendEmail({
+        to: order.attendee_email,
+        subject: `Your Tickets for ${eventDetails?.title || "VibeSocial Event"}! 🎫`,
+        html: `
+          <h2>Ticket Confirmation</h2>
+          <p>Hi ${order.attendee_name || "there"},</p>
+          <p>Your order for <strong>${eventDetails?.title || "VibeSocial Event"}</strong> has been confirmed.</p>
+          <div style="background-color: #1a1a1a; padding: 15px; border-radius: 8px; color: #fff; margin: 15px 0;">
+            <strong>Venue:</strong> ${eventDetails?.venue_name || "TBA"}<br/>
+            <strong>Location:</strong> ${eventDetails?.address || "TBA"}<br/>
+            <strong>Date/Time:</strong> ${eventDetails?.start_time ? new Date(eventDetails.start_time).toLocaleString() : "TBA"}
+          </div>
+          <p>You can view your tickets and QR codes directly in your account under "My Tickets".</p>
+          <br/>
+          <p>Best regards,<br/>The VibeSocial Team</p>
+        `
+      }).catch(err => console.error("Failed to send free ticket confirmation email:", err));
 
       try {
         await supabaseAdmin.from("notifications").insert({
@@ -633,6 +652,117 @@ router.post(
     }).catch(err => console.error("Failed to send order cancellation email:", err));
 
     res.json({ success: true, message: "Order cancelled successfully" });
+  })
+);
+
+/**
+ * PUT /api/orders/:id
+ * Update order status (called by frontend when using mock payment in live mode, or admin updates)
+ */
+router.put(
+  "/:id",
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const { data: order, error: fetchErr } = await supabaseAdmin
+      .from("orders")
+      .select("*, tickets")
+      .eq("id", id)
+      .single();
+
+    if (fetchErr || !order) throw new AppError("Order not found", 404);
+
+    // Only allow buyer or admin to update
+    const isBuyer = order.buyer_id === req.user!.id;
+    const isAdmin = req.user!.role === "admin";
+    if (!isBuyer && !isAdmin) {
+      throw new AppError("Access denied", 403);
+    }
+
+    const updates: any = {};
+    if (status && (status === "confirmed" || status === "cancelled")) {
+      updates.status = status;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.json(order);
+    }
+
+    const { data: updatedOrder, error: updateErr } = await supabaseAdmin
+      .from("orders")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (updateErr) throw new AppError(updateErr.message, 500);
+
+    // If status is updated to confirmed, process ticket generation & email confirmation
+    if (updates.status === "confirmed" && order.status !== "confirmed") {
+      // 1. Update tickets_sold + create Ticket rows
+      for (const line of order.tickets) {
+        await supabaseAdmin.rpc("increment_tickets_sold", {
+          p_ticket_type_id: line.ticket_type_id,
+          p_quantity: line.quantity,
+        });
+
+        const ticketRows = Array.from({ length: line.quantity }, () => ({
+          id: uuidv4(),
+          order_id: order.id,
+          event_id: order.event_id,
+          ticket_type_id: line.ticket_type_id,
+          buyer_id: order.buyer_id,
+          status: "valid",
+          qr_code_data: `VS-${uuidv4().replace(/-/g, "").slice(0, 16).toUpperCase()}`,
+        }));
+
+        await supabaseAdmin.from("tickets").insert(ticketRows);
+      }
+
+      // 2. Get event details for confirmation email
+      const { data: eventDetails } = await supabaseAdmin
+        .from("events")
+        .select("title, venue_name, address, start_time")
+        .eq("id", order.event_id)
+        .single();
+
+      // 3. Send ticket confirmation email
+      await sendEmail({
+        to: order.attendee_email,
+        subject: `Your Tickets for ${eventDetails?.title || "VibeSocial Event"}! 🎫`,
+        html: `
+          <h2>Ticket Confirmation</h2>
+          <p>Hi ${order.attendee_name || "there"},</p>
+          <p>Your payment was successful! Your tickets for <strong>${eventDetails?.title || "VibeSocial Event"}</strong> have been confirmed.</p>
+          <div style="background-color: #1a1a1a; padding: 15px; border-radius: 8px; color: #fff; margin: 15px 0;">
+            <strong>Venue:</strong> ${eventDetails?.venue_name || "TBA"}<br/>
+            <strong>Location:</strong> ${eventDetails?.address || "TBA"}<br/>
+            <strong>Date/Time:</strong> ${eventDetails?.start_time ? new Date(eventDetails.start_time).toLocaleString() : "TBA"}
+          </div>
+          <p>You can view your tickets and QR codes directly in your account under "My Tickets".</p>
+          <br/>
+          <p>Best regards,<br/>The VibeSocial Team</p>
+        `
+      }).catch(err => console.error("Failed to send ticket confirmation email:", err));
+
+      // 4. Trigger user notification
+      try {
+        await supabaseAdmin.from("notifications").insert({
+          title: "Tickets Confirmed! 🎫",
+          message: `Your tickets for ${eventDetails?.title || "VibeSocial Event"} are confirmed!`,
+          target_type: "all",
+          event_id: order.event_id,
+          event_title: eventDetails?.title,
+          link_url: "/MyTickets",
+        });
+      } catch (err) {
+        console.error("Order notification failed:", err);
+      }
+    }
+
+    res.json(updatedOrder);
   })
 );
 

@@ -1,9 +1,40 @@
 import { env } from "../config/env";
 
+import { supabaseAdmin } from "../config/supabase";
+
 interface SendEmailParams {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
+}
+
+/**
+ * Resolves the email addresses of all administrators.
+ * Looks for ADMIN_EMAIL env variable (comma-separated), then falls back to users table where role = 'admin'.
+ */
+export async function getAdminEmails(): Promise<string[]> {
+  const envAdminEmail = env.ADMIN_EMAIL;
+  if (envAdminEmail) {
+    return envAdminEmail.split(",").map(e => e.trim()).filter(Boolean);
+  }
+
+  try {
+    const { data: admins, error } = await supabaseAdmin
+      .from("users")
+      .select("email")
+      .eq("role", "admin");
+
+    if (error) {
+      console.error("[Email Service] Error fetching admin emails from DB:", error);
+    } else if (admins && admins.length > 0) {
+      return admins.map((u: any) => u.email).filter(Boolean);
+    }
+  } catch (err) {
+    console.error("[Email Service] Exception fetching admin emails from DB:", err);
+  }
+
+  // Final fallback
+  return ["admin@vibesocial.app"];
 }
 
 /**
@@ -147,12 +178,13 @@ function wrapHtmlTemplate(title: string, bodyContent: string): string {
 export async function sendEmail({ to, subject, html }: SendEmailParams): Promise<boolean> {
   const apiKey = env.RESEND_API_KEY;
   const from = env.EMAIL_FROM || "noreply@vibesocial.app";
+  const toList = Array.isArray(to) ? to : [to];
 
   // Automatically wrap simple HTML snippets in our brand layout template
   const isFullHtml = html.includes("<html") || html.includes("<!DOCTYPE");
   const formattedHtml = isFullHtml ? html : wrapHtmlTemplate(subject, html);
 
-  console.log(`\n[Email Service] Preparing to send email:\n  To: ${to}\n  Subject: ${subject}\n  From: ${from}`);
+  console.log(`\n[Email Service] Preparing to send email:\n  To: ${toList.join(", ")}\n  Subject: ${subject}\n  From: ${from}`);
 
   if (!apiKey || apiKey === "re_your-resend-api-key" || apiKey === "your-resend-api-key") {
     // Strip HTML elements for clean terminal display preview
@@ -170,7 +202,7 @@ export async function sendEmail({ to, subject, html }: SendEmailParams): Promise
       },
       body: JSON.stringify({
         from: `VibeSocial <${from}>`,
-        to: [to],
+        to: toList,
         subject,
         html: formattedHtml,
       }),
@@ -190,3 +222,4 @@ export async function sendEmail({ to, subject, html }: SendEmailParams): Promise
     return false;
   }
 }
+

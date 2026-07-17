@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { supabaseAdmin } from "../config/supabase";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
-import { sendEmail } from "../services/emailService";
+import { sendEmail, getAdminEmails } from "../services/emailService";
 import { z } from "zod";
 import { validate } from "../middleware/validate";
 
@@ -48,10 +48,10 @@ router.post(
     if (error) throw new AppError(error.message, 500);
 
     // Notify administrators
-    const adminEmail = process.env.EMAIL_FROM || "admin@vibesocial.app";
+    const adminEmails = await getAdminEmails();
     try {
       await sendEmail({
-        to: adminEmail,
+        to: adminEmails,
         subject: `⚠️ New Support Complaint: [${category}] ${subject}`,
         html: `
           <h2>New Support Ticket Logged</h2>

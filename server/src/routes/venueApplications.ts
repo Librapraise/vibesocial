@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { supabaseAdmin } from "../config/supabase";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
-import { sendEmail } from "../services/emailService";
+import { sendEmail, getAdminEmails } from "../services/emailService";
 import { env } from "../config/env";
 
 const router = Router();
@@ -98,9 +98,9 @@ router.post(
     }).catch(err => console.error("Failed to send submission confirmation email:", err));
 
     // Send alert email to admin
-    const adminEmail = env.EMAIL_FROM || "admin@vibesocial.app";
+    const adminEmails = await getAdminEmails();
     await sendEmail({
-      to: adminEmail,
+      to: adminEmails,
       subject: `🚨 New Venue Application: ${venue_name}`,
       html: `
         <h2>New Venue Partner Application</h2>

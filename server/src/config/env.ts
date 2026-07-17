@@ -23,6 +23,7 @@ const envSchema = z.object({
   // Email (Resend)
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default("noreply@vibesocial.app"),
+  ADMIN_EMAIL: z.string().optional(),
 
   // Storage
   MAX_UPLOAD_SIZE: z.string().default("10485760"),
@@ -58,6 +59,7 @@ export const env = parsed.success
       OPENAI_API_KEY: process.env.OPENAI_API_KEY,
       RESEND_API_KEY: process.env.RESEND_API_KEY,
       EMAIL_FROM: process.env.EMAIL_FROM || "noreply@vibesocial.app",
+      ADMIN_EMAIL: process.env.ADMIN_EMAIL,
       MAX_UPLOAD_SIZE: process.env.MAX_UPLOAD_SIZE || "10485760",
       CORS_ORIGINS: process.env.CORS_ORIGINS || "http://localhost:5173",
     };

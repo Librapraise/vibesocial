@@ -4,7 +4,7 @@ import { supabaseBrowser, useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Mail, Lock, Zap, Eye, EyeOff } from "lucide-react";
+import { Loader2, Mail, Lock, Zap, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { createPageUrl } from "@/utils";
 
 import logoImg from "@/assets/logo.png";
@@ -57,6 +57,15 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+      {/* Back to Home Button */}
+      <Link
+        to="/"
+        className="absolute top-6 left-6 inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white rounded-xl text-sm font-medium transition-all shadow-lg backdrop-blur-md z-50"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to Home
+      </Link>
+
       {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-orange-500/5 rounded-full blur-3xl" />

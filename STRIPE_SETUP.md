@@ -27,7 +27,7 @@ Since VibeSocial uses **Stripe Connect Express** to split payments between the p
    * Under **Branding**, customize your platform name, colors, and logos. This is what organizers will see when they redirect to Stripe to link their bank accounts.
    * Add your redirect/return URL to the whitelisted domains if Stripe asks for them:
      * Local: `http://localhost:5173/organizer`
-     * Production: `https://vibesocial-zeta.vercel.app/organizer`
+     * Production: `https://vibes-social.com/organizer`
 
 ---
 

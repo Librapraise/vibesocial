@@ -22,7 +22,8 @@ import {
   Users,
   Share2,
   Activity,
-  ArrowLeft
+  ArrowLeft,
+  MapPin
 } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import { cn } from "@/lib/utils";
@@ -119,6 +120,10 @@ export default function Settings() {
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(DEFAULT_NOTIF_SETTINGS);
   const [pushSupported] = useState<boolean>(() => typeof Notification !== "undefined");
 
+  // Geolocation States
+  const [locationGranted, setLocationGranted] = useState<boolean>(false);
+  const [requestingLoc, setRequestingLoc] = useState<boolean>(false);
+
   useEffect(() => {
     if (authUser) {
       setUser(authUser);
@@ -178,6 +183,16 @@ export default function Settings() {
     if (pushSupported && Notification.permission === "granted") {
       setNotifSettings((s) => ({ ...s, push_enabled: true }));
     }
+
+    // Reconcile geolocation permission
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: "geolocation" }).then((result) => {
+        setLocationGranted(result.state === "granted");
+        result.onchange = () => {
+          setLocationGranted(result.state === "granted");
+        };
+      }).catch(err => console.error("Error querying location permission:", err));
+    }
   }, [pushSupported, authUser]);
 
   // Request notification permissions
@@ -189,6 +204,26 @@ export default function Settings() {
     if (!pushSupported) return;
     const perm = await Notification.requestPermission();
     setNotifSettings((s) => ({ ...s, push_enabled: perm === "granted" }));
+  };
+
+  // Request location services permission
+  const requestLocation = () => {
+    if (!navigator.geolocation) {
+      toast({ title: "Not Supported", description: "Geolocation is not supported by your browser." });
+      return;
+    }
+    setRequestingLoc(true);
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        setLocationGranted(true);
+        setRequestingLoc(false);
+        toast({ title: "Location Enabled", description: "We can now show you nearby events." });
+      },
+      () => {
+        setRequestingLoc(false);
+        toast({ title: "Permission Denied", description: "Enable location in your browser settings if you wish to find nearby events.", variant: "destructive" });
+      }
+    );
   };
 
   // Toggle notification switches
@@ -668,6 +703,36 @@ export default function Settings() {
                       )}
                     />
                   </button>
+                </div>
+              </div>
+
+              {/* Location Services card */}
+              <div className="bg-zinc-900/40 border border-zinc-900 p-6 rounded-2xl space-y-5">
+                <div className="border-b border-zinc-800 pb-3 flex items-center gap-1.5">
+                  <MapPin className="w-4.5 h-4.5 text-orange-400" />
+                  <h3 className="text-base font-bold text-white">Location Services</h3>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 p-4 bg-zinc-950/40 border border-zinc-850 rounded-xl">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-zinc-200">Location Access</p>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">
+                      Find nightlife events and check in near your location.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={requestLocation}
+                    disabled={locationGranted || requestingLoc}
+                    className={cn(
+                      "text-xs rounded-xl font-bold border",
+                      locationGranted 
+                        ? "bg-green-500/10 text-green-400 border-green-500/20"
+                        : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-transparent"
+                    )}
+                  >
+                    {requestingLoc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : locationGranted ? "Enabled" : "Allow"}
+                  </Button>
                 </div>
               </div>
 

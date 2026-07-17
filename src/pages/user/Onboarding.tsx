@@ -26,7 +26,7 @@ const VIBE_INTERESTS_LIST = [
   "Cocktails", "Craft Beer", "Rooftops", "Live Bands", "Speakeasies", "Dance Club"
 ];
 
-type StepId = 1 | 2 | 3;
+type StepId = 1 | 2;
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -175,14 +175,14 @@ export default function Onboarding() {
             <img src={logoImg} alt="VibeSocial Logo" className="w-8 h-8 object-cover rounded-lg shadow-lg border border-zinc-800" />
             <span className="font-extrabold text-sm tracking-wide">VibeSocial Onboarding</span>
           </div>
-          <span className="text-xs font-bold text-zinc-500">Step {currentStep} of 3</span>
+          <span className="text-xs font-bold text-zinc-500">Step {currentStep} of 2</span>
         </div>
 
         {/* Step progress bar */}
         <div className="h-1.5 w-full bg-zinc-850 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-orange-500 to-pink-500 transition-all duration-300"
-            style={{ width: `${(currentStep / 3) * 100}%` }}
+            style={{ width: `${(currentStep / 2) * 100}%` }}
           />
         </div>
 
@@ -279,72 +279,6 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* STEP 3: ENABLE PERMISSIONS */}
-        {currentStep === 3 && (
-          <div className="space-y-5 animate-in fade-in duration-300">
-            <div className="space-y-1">
-              <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
-                <Zap className="w-5 h-5 text-orange-400" /> Unlock full capabilities
-              </h2>
-              <p className="text-xs text-zinc-400">Allow permissions for a real-time event experience.</p>
-            </div>
-
-            <div className="space-y-3">
-              {/* Location permission block */}
-              <div className="flex items-center justify-between p-4 bg-zinc-950/40 border border-zinc-850 rounded-2xl">
-                <div className="flex gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
-                    <MapPin className="w-4 h-4 text-orange-400" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-zinc-200">Location Services</h4>
-                    <p className="text-[10px] text-zinc-500 mt-0.5">Find events and check in near your location.</p>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={requestLocation}
-                  disabled={locationGranted || requestingLoc}
-                  className={cn(
-                    "text-xs rounded-xl font-bold border",
-                    locationGranted 
-                      ? "bg-green-500/10 text-green-400 border-green-500/20"
-                      : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-transparent"
-                  )}
-                >
-                  {requestingLoc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : locationGranted ? "Enabled" : "Allow"}
-                </Button>
-              </div>
-
-              {/* Notification permission block */}
-              <div className="flex items-center justify-between p-4 bg-zinc-950/40 border border-zinc-850 rounded-2xl">
-                <div className="flex gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-pink-500/10 flex items-center justify-center shrink-0">
-                    <Bell className="w-4 h-4 text-pink-400" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-zinc-200">Wait Time alerts</h4>
-                    <p className="text-[10px] text-zinc-500 mt-0.5">Receive alert logs for event capacity changes.</p>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={requestPush}
-                  disabled={pushGranted || requestingPush}
-                  className={cn(
-                    "text-xs rounded-xl font-bold border",
-                    pushGranted 
-                      ? "bg-green-500/10 text-green-400 border-green-500/20"
-                      : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-transparent"
-                  )}
-                >
-                  {requestingPush ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : pushGranted ? "Enabled" : "Allow"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Wizard buttons */}
         <div className="flex items-center justify-between gap-4 pt-4 border-t border-zinc-800/60">
           {currentStep > 1 ? (
@@ -359,7 +293,7 @@ export default function Onboarding() {
             <div />
           )}
 
-          {currentStep < 3 ? (
+          {currentStep < 2 ? (
             <Button
               onClick={handleNextStep}
               className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 ml-auto"

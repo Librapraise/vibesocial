@@ -167,7 +167,8 @@ router.post(
         await supabaseAdmin.from("notifications").insert({
           title: "Tickets Confirmed! 🎫",
           message: `Your tickets for ${eventDetails?.title || "VibeSocial Event"} are confirmed!`,
-          target_type: "all",
+          target_type: "user",
+          user_id: req.user!.id,
           event_id,
           event_title: eventDetails?.title,
           link_url: "/MyTickets",
@@ -346,7 +347,8 @@ router.post(
           await supabaseAdmin.from("notifications").insert({
             title: "Tickets Confirmed! 🎫",
             message: `Your tickets for ${eventDetails?.title || "VibeSocial Event"} are confirmed!`,
-            target_type: "all",
+            target_type: "user",
+            user_id: order.buyer_id,
             event_id: order.event_id,
             event_title: eventDetails?.title,
             link_url: "/MyTickets",
@@ -752,7 +754,8 @@ router.put(
         await supabaseAdmin.from("notifications").insert({
           title: "Tickets Confirmed! 🎫",
           message: `Your tickets for ${eventDetails?.title || "VibeSocial Event"} are confirmed!`,
-          target_type: "all",
+          target_type: "user",
+          user_id: order.buyer_id,
           event_id: order.event_id,
           event_title: eventDetails?.title,
           link_url: "/MyTickets",

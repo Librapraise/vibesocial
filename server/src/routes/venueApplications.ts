@@ -189,7 +189,8 @@ router.put(
         await supabaseAdmin.from("notifications").insert({
           title: "Venue Approved! 🎉",
           message: `Your venue application for ${existing.venue_name} has been approved!`,
-          target_type: "organizer",
+          target_type: "user",
+          user_id: existing.user_id,
           link_url: "/OrganizerPortal",
         });
       } catch (err) {
@@ -226,7 +227,8 @@ router.put(
         await supabaseAdmin.from("notifications").insert({
           title: "Venue Application Update",
           message: `Your application for ${existing.venue_name} was declined: ${reason}`,
-          target_type: "all",
+          target_type: "user",
+          user_id: existing.user_id,
         });
       } catch (err) {
         console.error("Failed to create rejection notification:", err);

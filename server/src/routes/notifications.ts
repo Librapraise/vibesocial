@@ -11,6 +11,7 @@ const createNotificationSchema = z.object({
   title: z.string().min(1),
   message: z.string().min(1),
   target_type: z.string().default("all"),
+  user_id: z.string().uuid().optional(),
   event_id: z.string().uuid().optional(),
   event_title: z.string().optional(),
   link_url: z.string().url().optional().or(z.literal("")),
@@ -26,10 +27,12 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const { limit = "30" } = req.query;
 
+    const currentUserId = req.user?.id;
     const { data, error } = await supabaseAdmin
       .from("notifications")
       .select("*")
       .eq("is_active", true)
+      .or(`user_id.is.null,user_id.eq.${currentUserId}`)
       .order("created_at", { ascending: false })
       .limit(Number(limit));
 
@@ -54,7 +57,9 @@ router.post(
   requireAuth,
   validate(createNotificationSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { title, message, target_type, event_id, event_title, link_url, is_active } = req.body;
+    const { title, message, target_type, user_id, event_id, event_title, link_url, is_active } = req.body;
+
+    const recipientUserId = user_id || req.user?.id || null;
 
     const { data, error } = await supabaseAdmin
       .from("notifications")
@@ -62,6 +67,7 @@ router.post(
         title,
         message,
         target_type,
+        user_id: recipientUserId,
         event_id: event_id || null,
         event_title: event_title || null,
         link_url: link_url || null,
